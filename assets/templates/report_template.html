@@ -1,93 +1,599 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Android SW Diff</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Android SW Diff — {{BUILD_A}} vs {{BUILD_B}}</title>
 <style>
-body {
-    font-family: Arial;
-    background: #f5f5f5;
+  /* ── TOKENS DARK ─────────────────────────────────────────────── */
+  :root {
+    --bg:        #0f0f11;
+    --surface:   #18181c;
+    --surface2:  #202026;
+    --surface3:  #28282f;
+    --border:    #30303c;
+    --text:      #eeeef2;
+    --text2:     #a0a0b8;
+    --muted:     #58587a;
+
+    --accent:    #c8b8f8;
+
+    --col-a:        #f0d080;
+    --col-a-dim:    rgba(240,208,128,.10);
+    --col-b:        #c0a8f0;
+    --col-b-dim:    rgba(192,168,240,.10);
+
+    --ok-fg:    #78d898;
+    --ok-bg:    rgba(120,216,152,.12);
+    --bad-fg:   #f0a858;
+    --bad-bg:   rgba(240,168,88,.12);
+
+    --date-color: #eeeef2;   /* fix #8: branco no dark */
+
+    --font:    'Segoe UI', system-ui, sans-serif;          /* fix #5: fonte mais legível */
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+
+    --h-header: 58px;   /* fix #11: +10% */
+    --h-tabs:   40px;
+    --h-block:  38px;
+
+    --page-w:  1080px;
+    --page-px: 28px;
+  }
+
+  /* ── TOKENS LIGHT — completamente refeito (fix #3) ───────────── */
+  .light {
+  --bg:        #f5f7fb;
+  --surface:   #ffffff;
+  --surface2:  #f0f2f8;
+  --surface3:  #e6e9f3;
+  --border:    #d6daea;
+
+  --text:      #111827;
+  --text2:     #4b5563;
+  --muted:     #9aa3b2;
+
+  --accent:    #5b3df5;
+
+  /* 🔥 MAIS VIVO */
+  --col-a:        #ea580c;   /* laranja forte */
+  --col-a-dim: rgba(234,88,12,.12);
+
+  --col-b:        #2563eb;   /* roxo/azul vivo */
+  --col-b-dim: rgba(37,99,235,.12);
+
+  /* 🔥 DIFERENÇA CLARA */
+  --ok-fg:    #16a34a;   /* verde vivo */
+  --ok-bg:    rgba(22,163,74,.10);
+
+  --bad-fg:   #dc2626;   /* vermelho real */
+  --bad-bg:   rgba(220,38,38,.10);
+
+  --date-color: #111827;
 }
 
-td {
-    font-family: monospace;
-}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
 
-.tabs {
+  /* ── HEADER (fix #11: +10%, logo android, destaque título) ───── */
+  .header {
+    height: var(--h-header);
     display: flex;
-    border-bottom: 1px solid #ccc;
-}
-
-.tab {
-    padding: 10px;
-    cursor: pointer;
-}
-
-.tab.active {
-    font-weight: bold;
-}
-
-.content {
-    display: none;
-    padding: 20px;
-}
-
-.content.active {
-    display: block;
-}
-
-table {
+    align-items: center;
+    padding: 0 var(--page-px);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    border-collapse: collapse;
-    background: white;
+    max-width: var(--page-w);
+    margin: 0 auto;
+    gap: 16px;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+  }
+  /* logo android à esquerda */
+  .logo-android {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
+  }
+  .header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+  .header-title h1 {
+    font-size: 16px;          /* fix #11: destaque */
+    font-weight: 800;
+    color: var(--text);
+    white-space: nowrap;
+    letter-spacing: -.2px;
+  }
+  .header-title .subtitle {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: .4px;
+    text-transform: uppercase;
+  }
+
+  /* pill builds */
+  .build-pill {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    font-family: var(--font);
+    font-size: 10.5px;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .build-pill .seg {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 12px;
+    background: var(--surface2);
+  }
+  .build-pill .seg + .seg,
+  .build-pill .date-seg { border-left: 1px solid var(--border); }
+  .build-pill .lbl {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--muted);
+  }
+  .build-pill .val {
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .build-pill .seg.a .val { color: var(--col-a); }
+  .build-pill .seg.b .val { color: var(--col-b); }
+  .build-pill .date-seg {
+    display: flex;
+    align-items: center;
+    padding: 3px 11px;
+    background: var(--surface2);
+    color: var(--date-color);  
+    font-size: 10px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .btn-theme {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 9px;
+    line-height: 1.4;
+    transition: border-color .15s, color .15s;
+    font-family: var(--font);
+  }
+  .btn-theme:hover { border-color: var(--accent); color: var(--accent); }
+  /* logo produto (fix #7: com onerror mais robusto) */
+  .logo-produto {
+  height: 46px;
+  margin-top: 2px;   
+  width: auto;
+  object-fit: contain;
+  opacity: .8;
+  display: block;
 }
 
-th, td {
-    padding: 6px;
-    border-bottom: 1px solid #eee;
+  /* ── TABS ────────────────────────────────────────────────────── */
+  .tabs {
+    height: var(--h-tabs);
+    display: flex;
+    align-items: flex-end;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 var(--page-px);
+    position: sticky;
+    top: var(--h-header);
+    z-index: 190;
+  }
+  .tabs-inner {
+    display: flex;
+    align-items: flex-end;
+    max-width: var(--page-w);
+    width: 100%;
+    margin: 0 auto;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px 8px;
+    cursor: pointer;
+    color: var(--muted);
     font-size: 12px;
-}
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    user-select: none;
+    transition: color .15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-count {
+    font-size: 9.5px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1px 6px;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  .tab.active .tab-count {
+    color: var(--accent);
+    background: rgba(200,184,248,.08);
+    border-color: rgba(200,184,248,.22);
+  }
 
-.block {
-    margin-bottom: 30px;
-}
+  /* ── PANELS ──────────────────────────────────────────────────── */
+  .panel { display: none; padding: 18px var(--page-px) 52px; }
+  .panel.active { display: block; }
+  .panel-inner { max-width: var(--page-w); margin: 0 auto; }
+
+  /* fix #4 + #9: changes badge */
+  .changes-badge {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 18px;
+    padding: 7px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+  }
+  .changes-badge .count {
+    font-family: var(--font);    /* fix #9: fonte normal, não mono */
+    font-size: 22px;
+    font-weight: 900;            /* mais peso */
+    color: var(--text);
+    line-height: 1;
+  }
+  .changes-badge .label {
+    font-size: 12px;
+    font-weight: 700;            /* fix #4: negrito */
+    color: var(--text2);
+    letter-spacing: .1px;
+  }
+
+  /* ── BLOCOS ──────────────────────────────────────────────────── */
+  .block {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: visible;
+    margin-bottom: 10px;
+    position: relative;
+  }
+
+  .block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    height: var(--h-block);
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    position: sticky;
+    top: calc(var(--h-header) + var(--h-tabs));
+    z-index: 100;
+    box-shadow: 0 -1px 0 var(--border);
+    cursor: pointer;
+    user-select: none;
+    transition: filter .1s;
+  }
+  .block-header:hover { filter: brightness(1.07); }
+  .block.collapsed .block-header { border-radius: 8px; border-bottom: none; }
+
+  .block-header-left { display: flex; align-items: center; gap: 10px; }
+
+  /* fix #10: títulos em maiúsculo | fix #2: negrito */
+  .block-header h3 {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .5px;
+    text-transform: uppercase;  /* fix #10 */
+  }
+
+  .collapse-arrow {
+    font-size: 9px;
+    color: var(--muted);
+    transition: transform .2s ease;
+    display: inline-block;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .block.collapsed .collapse-arrow { transform: rotate(-90deg); }
+
+  .block-header-right { display: flex; align-items: center; gap: 8px; }
+
+  /* fix #6: status mais destacado */
+  .status {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .status.ok {
+    background: var(--ok-bg);
+    color: var(--ok-fg);
+    border-color: rgba(120,216,152,.25);
+  }
+  .status.bad {
+    background: var(--bad-bg);
+    color: var(--bad-fg);
+    border-color: rgba(240,168,88,.25);
+  }
+
+  .block-body { overflow: hidden; }
+  .block.collapsed .block-body { display: none; }
+
+  /* ── TABLE ───────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; }
+
+  /* fix #1: thead NÃO é sticky — evita sobreposição sobre as props */
+  thead tr {
+    background: var(--surface3);
+    border-bottom: 2px solid var(--border);
+  }
+  thead th {
+    padding: 5px 12px;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: var(--muted);
+    text-align: left;
+  }
+  thead th:first-child { width: 235px; }
+  thead th.col-a-head { color: var(--col-a); }
+  thead th.col-b-head { color: var(--col-b); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .08s;
+    opacity: .87;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); opacity: 1; }
+
+  td { padding: 5px 12px; vertical-align: top; }
+
+  /* fix #2: prop key em negrito */
+  .prop-key {
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 700;           
+    color: var(--text);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  /* fix #5: fonte mais legível para valores */
+  .value-box {
+    font-family: var(--font);   /* fix #5: sem mono */
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text);
+    word-break: break-all;
+    line-height: 1.5;
+    padding: 4px 9px;
+    border-radius: 4px;
+    border-left: 2px solid transparent;
+  }
+  .col-a .value-box { background: var(--col-a-dim); border-left-color: var(--col-a); }
+  .col-b .value-box { background: var(--col-b-dim); border-left-color: var(--col-b); }
+
+  /* ── PKG / FEAT ──────────────────────────────────────────────── */
+    .list-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    }
+
+    .list-wrap table { 
+    border-collapse: collapse; 
+    }
+
+    .list-wrap thead tr {
+    background: var(--surface2);
+    border-bottom: 2px solid var(--border);
+    position: static; /* 🔥 ESSENCIAL */
+    }
+
+    .list-wrap thead th {
+    padding: 8px 14px;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    text-align: left;
+    }
+
+    .list-wrap thead th:first-child { color: var(--col-a); }
+    .list-wrap thead th:last-child  { color: var(--col-b); }
+
+    .list-wrap tbody tr { 
+    border-bottom: 1px solid var(--border); 
+    opacity: .85; 
+    }
+
+    .list-wrap tbody tr:last-child  { border-bottom: none; }
+
+    .list-wrap tbody tr:hover { 
+    background: var(--surface2); 
+    opacity: 1; 
+    }
+
+    .list-wrap tbody td {
+    padding: 5px 14px;
+    font-family: var(--font);
+    font-size: 11px; /* 🔥 igual ao antigo */
+    word-break: break-all;
+    color: var(--text2);
+    }
+
+    .list-wrap tbody td:first-child:not(:empty) { 
+    color: var(--bad-fg); 
+    }
+
+    .list-wrap tbody td:last-child:not(:empty)  { 
+    color: var(--ok-fg);  
+    }
+
+  /* ── FOOTER ──────────────────────────────────────────────────── */
+  .footer {
+    text-align: center;
+    padding: 18px;
+    font-size: 10.5px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
 </style>
-
-<script>
-function openTab(name) {
-    document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-
-    document.getElementById(name).classList.add('active');
-    document.getElementById("tab-" + name).classList.add('active');
-}
-</script>
-
 </head>
-
 <body>
 
-<div class="tabs">
-    <div id="tab-props" class="tab active" onclick="openTab('props')">1 - Properties</div>
-    <div id="tab-pkgs" class="tab" onclick="openTab('pkgs')">2 - Packages</div>
-    <div id="tab-feats" class="tab" onclick="openTab('feats')">3 - Features</div>
-</div>
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-left">
+      <!-- fix #11: logo android à esquerda -->
+      <img class="logo-android" src="{{LOGO_ANDROID_PATH}}" alt="Android"
+           onerror="this.style.display='none'">
+      <div class="header-title">
+        <h1>Android SW Diff</h1>
+        <span class="subtitle">Software Comparison Tool</span>
+      </div>
+      <div class="build-pill">
+        <div class="seg a"><span class="lbl">A</span><span class="val">{{BUILD_A}}</span></div>
+        <div class="seg b"><span class="lbl">B</span><span class="val">{{BUILD_B}}</span></div>
+        <div class="date-seg">{{DATE}}</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-theme" onclick="toggleTheme()">☀ / 🌙</button>
+      <!-- fix #7: logo produto -->
+      <img class="logo-produto" src="{{LOGO_PATH}}" alt=""
+           onerror="this.style.display='none'">
+    </div>
+  </div>
+</header>
 
-<div id="props" class="content active">
-    <p>Nº de Mudanças: {{TOTAL_PROPS}}</p>
+<!-- TABS -->
+<nav class="tabs">
+  <div class="tabs-inner">
+    <div id="tab-props" class="tab active" onclick="openTab('props')">
+      Properties <span class="tab-count">{{TOTAL_PROPS}}</span>
+    </div>
+    <div id="tab-pkgs" class="tab" onclick="openTab('pkgs')">
+      Packages <span class="tab-count">{{TOTAL_PKGS}}</span>
+    </div>
+    <div id="tab-feats" class="tab" onclick="openTab('feats')">
+      Features <span class="tab-count">{{TOTAL_FEATS}}</span>
+    </div>
+  </div>
+</nav>
+
+<!-- PROPERTIES -->
+<section id="props" class="panel active">
+  <div class="panel-inner">
+    <div class="changes-badge">
+      <span class="count">{{TOTAL_PROPS}}</span>
+      <span class="label">propriedade(s) com diferença</span>
+    </div>
     {{PROPS_HTML}}
-</div>
+  </div>
+</section>
 
-<div id="pkgs" class="content">
-    <p>Nº de Mudanças: {{TOTAL_PKGS}}</p>
-    {{PKGS_TABLE}}
-</div>
+<!-- PACKAGES -->
+<section id="pkgs" class="panel">
+  <div class="panel-inner">
+    <div class="changes-badge">
+      <span class="count">{{TOTAL_PKGS}}</span>
+      <span class="label">pacote(s) diferente(s)</span>
+    </div>
+    <div class="list-wrap">{{PKGS_TABLE}}</div>
+  </div>
+</section>
 
-<div id="feats" class="content">
-    <p>Nº de Mudanças: {{TOTAL_FEATS}}</p>
-    {{FEATS_TABLE}}
-</div>
+<!-- FEATURES -->
+<section id="feats" class="panel">
+  <div class="panel-inner">
+    <div class="changes-badge">
+      <span class="count">{{TOTAL_FEATS}}</span>
+      <span class="label">feature(s) diferente(s)</span>
+    </div>
+    <div class="list-wrap">{{FEATS_TABLE}}</div>
+  </div>
+</section>
 
+<footer class="footer">
+  Android SW Diff Tool v1.0 — desenvolvido por Guilherme Lima
+</footer>
+
+<script>
+  function openTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(name).classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+  function toggleTheme() {
+    document.documentElement.classList.toggle('light');
+  }
+  function toggleBlock(el) {
+    el.closest('.block').classList.toggle('collapsed');
+  }
+</script>
 </body>
 </html>

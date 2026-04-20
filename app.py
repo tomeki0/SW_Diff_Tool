@@ -2,12 +2,17 @@ import os
 import subprocess
 import threading
 import pywinstyles
+import base64
 from PIL import Image
 
 from tkinter import messagebox
 
 import customtkinter as ctk
 from utils import resource_path, filtrar_props
+
+def img_to_base64(path):
+    with open(path, "rb") as f:
+        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
 class App(ctk.CTk):
 
@@ -79,7 +84,8 @@ class App(ctk.CTk):
         self.logo_label = None 
         try:
             # Caminho simplificado para teste
-            logo_path = resource_path("assets/logo_positivo.png")
+            logo_path = "assets/logo_positivo.png"
+            logo_android_path = "assets/logo_android.png"
             
             if os.path.exists(logo_path):
                 logo_pil = Image.open(logo_path)
@@ -489,76 +495,79 @@ class App(ctk.CTk):
             n_diff = calcular_diff_props(props)
             total_props_diff += n_diff
 
-            status = "Idêntico" if n_diff == 0 else "Houve mudanças"
+            if n_diff == 0:
+                status_html = '<span class="status ok">✓ Idêntico</span>'
+            else:
+                status_html = '<span class="status bad">⚠ Houve mudanças</span>'
 
             rows = ""
             for p in props:
                 rows += f"""
                 <tr>
-                    <td>{p['key']}</td>
-                    <td>{p['a']}</td>
-                    <td>{p['b']}</td>
+                    <td><span class="prop-key">{p['key']}</span></td>
+                    <td class="col-a"><div class="value-box">{p['a']}</div></td>
+                    <td class="col-b"><div class="value-box">{p['b']}</div></td>
                 </tr>
                 """
 
             props_html += f"""
             <div class="block">
-                <h3>{categoria} — {status}</h3>
-                <table>
-                    <tr>
-                        <th>Property</th>
-                        <th>{self.build_a_id}</th>
-                        <th>{self.build_b_id}</th>
-                    </tr>
-                    {rows}
-                </table>
+                <div class="block-header" onclick="toggleBlock(this)">
+                    <div class="block-header-left">
+                        <h3>{categoria} <span class="collapse-arrow">▼</span></h3>
+                    </div>
+                    <div class="block-header-right">
+                        {status_html}
+                    </div>
+                </div>
+                <div class="block-body">
+                    <table>
+                        <thead><tr>
+                            <th>Property</th>
+                            <th class="col-a-head">{self.build_a_id}</th>
+                            <th class="col-b-head">{self.build_b_id}</th>
+                        </tr></thead>
+                        <tbody>{rows}</tbody>
+                    </table>
+                </div>
             </div>
             """
 
         # ================= PACKAGES / FEATURES =================
-        pkgs_added = data['pkgs']['added']
+        pkgs_added   = data['pkgs']['added']
         pkgs_removed = data['pkgs']['removed']
-
-        feats_added = data['feats']['added']
+        feats_added  = data['feats']['added']
         feats_removed = data['feats']['removed']
 
         def build_dual_list(left, right, label_left, label_right):
-            max_len = max(len(left), len(right))
+            max_len = max(len(left), len(right), 1)
             rows = ""
-
             for i in range(max_len):
-                l = left[i] if i < len(left) else ""
+                l = left[i]  if i < len(left)  else ""
                 r = right[i] if i < len(right) else ""
-
-                rows += f"""
-                <tr>
-                    <td>{l}</td>
-                    <td>{r}</td>
-                </tr>
-                """
-
+                rows += f"<tr><td>{l}</td><td>{r}</td></tr>"
             return f"""
             <table>
-                <tr>
-                    <th>{label_left}</th>
-                    <th>{label_right}</th>
-                </tr>
-                {rows}
+            <tr>
+                <th>{label_left}</th>
+                <th>{label_right}</th>
+            </tr>
+            {rows}
             </table>
             """
 
         pkgs_table = build_dual_list(
             [f"- {x}" for x in pkgs_removed],
             [f"+ {x}" for x in pkgs_added],
-            f"Build A ({self.build_a_id})",
-            f"Build B ({self.build_b_id})"
+            f"Build A  —  {self.build_a_id}",
+            f"Build B  —  {self.build_b_id}"
         )
 
         feats_table = build_dual_list(
             [f"- {x}" for x in feats_removed],
             [f"+ {x}" for x in feats_added],
-            f"Build A ({self.build_a_id})",
-            f"Build B ({self.build_b_id})"
+            f"Build A  —  {self.build_a_id}",
+            f"Build B  —  {self.build_b_id}"
         )
 
         # ================= TEMPLATE =================
@@ -567,8 +576,21 @@ class App(ctk.CTk):
         with open(template_path, "r", encoding="utf-8") as f:
             template = f.read()
 
-        html = template.replace("{{TOTAL_PROPS}}", str(total_props_diff))
-        html = html.replace("{{PROPS_HTML}}", props_html)
+        logo_path = img_to_base64(resource_path("assets/logo_positivo.png"))
+        logo_android_path = img_to_base64(resource_path("assets/logo_android.png"))
+
+        from datetime import datetime
+
+        html = template
+        html = html.replace("{{LOGO_PATH}}",         logo_path.replace("\\", "/"))
+        html = html.replace("{{LOGO_ANDROID_PATH}}", logo_android_path.replace("\\", "/"))
+
+        html = html.replace("{{BUILD_A}}", self.build_a_id)
+        html = html.replace("{{BUILD_B}}", self.build_b_id)
+        html = html.replace("{{DATE}}",    datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+
+        html = html.replace("{{TOTAL_PROPS}}", str(total_props_diff))
+        html = html.replace("{{PROPS_HTML}}",  props_html)
 
         html = html.replace("{{TOTAL_PKGS}}", str(len(pkgs_added) + len(pkgs_removed)))
         html = html.replace("{{PKGS_TABLE}}", pkgs_table)
