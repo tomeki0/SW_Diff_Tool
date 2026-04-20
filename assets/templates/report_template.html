@@ -440,7 +440,8 @@
     }
 
     .list-wrap table { 
-    border-collapse: collapse; 
+      border-collapse: collapse; 
+      table-layout: fixed; 
     }
 
     .list-wrap thead tr {
@@ -461,6 +462,10 @@
     .list-wrap thead th:first-child { color: var(--col-a); }
     .list-wrap thead th:last-child  { color: var(--col-b); }
 
+    .list-wrap thead th:first-child {
+    border-right: 1px solid var(--border);
+    }
+
     .list-wrap tbody tr { 
     border-bottom: 1px solid var(--border); 
     opacity: .85; 
@@ -474,19 +479,28 @@
     }
 
     .list-wrap tbody td {
-    padding: 5px 14px;
-    font-family: var(--font);
-    font-size: 11px; /* 🔥 igual ao antigo */
-    word-break: break-all;
-    color: var(--text2);
+      padding: 5px 14px;
+      font-family: var(--font);
+      font-size: 13px; 
+      word-break: break-all;
+      color: var(--text2);
+      font-weight: 600;
+    }
+
+    .list-wrap td {
+      width: 50%;
+    }
+
+    .list-wrap tbody td:first-child {
+      border-right: 1px solid var(--border);
     }
 
     .list-wrap tbody td:first-child:not(:empty) { 
-    color: var(--bad-fg); 
+    color: var(--col-a); 
     }
 
     .list-wrap tbody td:last-child:not(:empty)  { 
-    color: var(--ok-fg);  
+    color: var(--col-b);  
     }
 
   /* ── FOOTER ──────────────────────────────────────────────────── */
