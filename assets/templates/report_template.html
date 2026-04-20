@@ -18,10 +18,11 @@
 
     --accent:    #c8b8f8;
 
-    --col-a:        #f0d080;
-    --col-a-dim:    rgba(240,208,128,.10);
-    --col-b:        #c0a8f0;
-    --col-b-dim:    rgba(192,168,240,.10);
+    --col-a:        #3B82F6;
+    --col-a-dim: rgba(59,130,246,0.18);
+
+    --col-b:        #8B5CF6;
+    --col-b-dim: rgba(139,92,246,0.18);
 
     --ok-fg:    #78d898;
     --ok-bg:    rgba(120,216,152,.12);
@@ -41,6 +42,10 @@
     --page-px: 28px;
   }
 
+  tr:not(.row-changed) .value-box {
+    opacity: 0.55;
+  }
+
   /* ── TOKENS LIGHT — completamente refeito (fix #3) ───────────── */
   .light {
   --bg:        #f5f7fb;
@@ -56,11 +61,11 @@
   --accent:    #5b3df5;
 
   /* 🔥 MAIS VIVO */
-  --col-a:        #ea580c;   /* laranja forte */
-  --col-a-dim: rgba(234,88,12,.12);
+  --col-a:        #2563EB;   /* laranja forte */
+  --col-a-dim: rgba(37,99,235,0.10);
 
-  --col-b:        #2563eb;   /* roxo/azul vivo */
-  --col-b-dim: rgba(37,99,235,.12);
+  --col-b:        #7C3AED;   /* roxo/azul vivo */
+  --col-b-dim: rgba(124,58,237,0.10);
 
   /* 🔥 DIFERENÇA CLARA */
   --ok-fg:    #16a34a;   /* verde vivo */
@@ -277,14 +282,17 @@
   /* fix #4 + #9: changes badge */
   .changes-badge {
     display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 18px;
-    padding: 7px 16px;
-    background: var(--surface);
+    align-items: center;
+    gap: 6px;
+
+    background: var(--surface2);
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: 8px;
+
+    padding: 8px 14px;
+    margin-bottom: 12px;
   }
+
   .changes-badge .count {
     font-family: var(--font);    /* fix #9: fonte normal, não mono */
     font-size: 22px;
@@ -293,11 +301,10 @@
     line-height: 1;
   }
   .changes-badge .label {
-    font-size: 12px;
-    font-weight: 700;            /* fix #4: negrito */
+    font-size: inherit;
+    font-weight: inherit;
     color: var(--text2);
-    letter-spacing: .1px;
-  }
+}
 
   /* ── BLOCOS ──────────────────────────────────────────────────── */
   .block {
@@ -393,8 +400,21 @@
     text-align: left;
   }
   thead th:first-child { width: 235px; }
-  thead th.col-a-head { color: var(--col-a); }
-  thead th.col-b-head { color: var(--col-b); }
+
+  th.col-a-head {
+    background: var(--col-a);
+    color: #fff !important;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+th.col-b-head {
+    background: var(--col-b);
+    color: #fff !important;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+td.col-a { background: var(--color-a-bg); border-left: 2px solid var(--color-a); }
+td.col-b { background: var(--color-b-bg); border-left: 2px solid var(--color-b); }
 
   tbody tr {
     border-bottom: 1px solid var(--border);
@@ -425,7 +445,7 @@
     word-break: break-all;
     line-height: 1.5;
     padding: 4px 9px;
-    border-radius: 4px;
+    border-radius: 6px;
     border-left: 2px solid transparent;
   }
   .col-a .value-box { background: var(--col-a-dim); border-left-color: var(--col-a); }
@@ -474,8 +494,10 @@
     .list-wrap tbody tr:last-child  { border-bottom: none; }
 
     .list-wrap tbody tr:hover { 
-    background: var(--surface2); 
-    opacity: 1; 
+      background: var(--surface2); 
+      opacity: 1; 
+      background: rgba(255,255,255,0.04);
+
     }
 
     .list-wrap tbody td {
@@ -497,10 +519,12 @@
 
     .list-wrap tbody td:first-child:not(:empty) { 
     color: var(--col-a); 
+    font-weight: 700;
     }
 
     .list-wrap tbody td:last-child:not(:empty)  { 
     color: var(--col-b);  
+    font-weight: 700;
     }
 
   /* ── FOOTER ──────────────────────────────────────────────────── */
@@ -511,6 +535,22 @@
     color: var(--muted);
     border-top: 1px solid var(--border);
     margin-top: 32px;
+  }
+
+  /* linha com mudança destacada */
+  tr.row-changed {
+      background: transparent;
+  }
+  tr.row-changed td:first-child {
+    border-left: 3px solid #FFD500;
+    box-shadow: -6px 0 0 rgba(255,213,0,0.08);
+}
+
+  /* CSS para summary-count */
+  .summary-count {
+    font-size: inherit;
+    font-weight: 700;
+    color: #FFD500;
   }
 </style>
 </head>
@@ -561,7 +601,7 @@
 <section id="props" class="panel active">
   <div class="panel-inner">
     <div class="changes-badge">
-      <span class="count">{{TOTAL_PROPS}}</span>
+      <span class="summary-count">{{TOTAL_PROPS}}</span>
       <span class="label">propriedade(s) com diferença</span>
     </div>
     {{PROPS_HTML}}
@@ -572,7 +612,7 @@
 <section id="pkgs" class="panel">
   <div class="panel-inner">
     <div class="changes-badge">
-      <span class="count">{{TOTAL_PKGS}}</span>
+      <span class="summary-count">{{TOTAL_PKGS}}</span>
       <span class="label">pacote(s) diferente(s)</span>
     </div>
     <div class="list-wrap">{{PKGS_TABLE}}</div>
@@ -583,7 +623,7 @@
 <section id="feats" class="panel">
   <div class="panel-inner">
     <div class="changes-badge">
-      <span class="count">{{TOTAL_FEATS}}</span>
+      <span class="summary-count">{{TOTAL_FEATS}}</span>
       <span class="label">feature(s) diferente(s)</span>
     </div>
     <div class="list-wrap">{{FEATS_TABLE}}</div>
