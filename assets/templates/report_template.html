@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Android SW Diff</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #f5f5f5;
+}
+
+td {
+    font-family: monospace;
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #ccc;
+}
+
+.tab {
+    padding: 10px;
+    cursor: pointer;
+}
+
+.tab.active {
+    font-weight: bold;
+}
+
+.content {
+    display: none;
+    padding: 20px;
+}
+
+.content.active {
+    display: block;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th, td {
+    padding: 6px;
+    border-bottom: 1px solid #eee;
+    font-size: 12px;
+}
+
+.block {
+    margin-bottom: 30px;
+}
+</style>
+
+<script>
+function openTab(name) {
+    document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    document.getElementById(name).classList.add('active');
+    document.getElementById("tab-" + name).classList.add('active');
+}
+</script>
+
+</head>
+
+<body>
+
+<div class="tabs">
+    <div id="tab-props" class="tab active" onclick="openTab('props')">1 - Properties</div>
+    <div id="tab-pkgs" class="tab" onclick="openTab('pkgs')">2 - Packages</div>
+    <div id="tab-feats" class="tab" onclick="openTab('feats')">3 - Features</div>
+</div>
+
+<div id="props" class="content active">
+    <p>Nº de Mudanças: {{TOTAL_PROPS}}</p>
+    {{PROPS_HTML}}
+</div>
+
+<div id="pkgs" class="content">
+    <p>Nº de Mudanças: {{TOTAL_PKGS}}</p>
+    {{PKGS_TABLE}}
+</div>
+
+<div id="feats" class="content">
+    <p>Nº de Mudanças: {{TOTAL_FEATS}}</p>
+    {{FEATS_TABLE}}
+</div>
+
+</body>
+</html>

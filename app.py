@@ -7,7 +7,6 @@ from PIL import Image
 from tkinter import messagebox
 
 import customtkinter as ctk
-from report_window import ReportWindow
 from utils import resource_path, filtrar_props
 
 class App(ctk.CTk):
@@ -313,9 +312,9 @@ class App(ctk.CTk):
                     def _perguntar():
                         continuar[0] = messagebox.askyesno(
                             "⚠ Atenção — Mesmo Dispositivo",
-                            f"O dispositivo conectado ({serial_atual}) parece ser o MESMO\n"
-                            f"usado para coletar a Build A.\n\n"
-                            f"Isso gerará um diff vazio (A vs A).\n\n"
+                            f"O dispositivo conectado parece ser o MESMO utilizado na coleta da Build A.\n\n"
+                            f"SN: {serial_atual}\n\n"
+                            f"Isso resultará em uma comparação sem diferenças (Build A vs Build A).\n\n"
                             f"Deseja continuar mesmo assim?"
                         )
                         if not continuar[0]:
@@ -389,9 +388,6 @@ class App(ctk.CTk):
         self.coletando = False
 
     def gerar_diff(self):
-        if self.report_window and self.report_window.winfo_exists():
-            self.report_window.focus()
-            return
 
         def get_set_from_text(texto):
             return set(l.strip() for l in texto.splitlines() if l.strip())
@@ -417,7 +413,8 @@ class App(ctk.CTk):
                 vb = prop_b.get(k, "---")
                 data['props'][categoria].append({'key': k, 'a': va, 'b': vb})
 
-        self.report_window = ReportWindow(data, self.build_a_id, self.build_b_id, self)
+        # 🔥 novo fluxo direto
+        self.gerar_html_report(data)
 
     def get_device_id(self):
         return self.rodar_adb(["adb", "shell", "getprop", "ro.build.display.id"])
@@ -470,3 +467,119 @@ class App(ctk.CTk):
         y = int(tela_altura / 2 - altura / 2)
 
         self.geometry(f"{largura}x{altura}+{x}+{y}")
+
+    def gerar_html_report(self, data):
+        import tempfile
+        import webbrowser
+
+        def calcular_diff_props(props):
+            return sum(
+                1 for p in props
+                if p['a'] != p['b'] and p['a'] != "---" and p['b'] != "---"
+            )
+
+        # ================= PROPERTIES =================
+        props_html = ""
+        total_props_diff = 0
+
+        for categoria, props in data['props'].items():
+            if not props:
+                continue
+
+            n_diff = calcular_diff_props(props)
+            total_props_diff += n_diff
+
+            status = "Idêntico" if n_diff == 0 else "Houve mudanças"
+
+            rows = ""
+            for p in props:
+                rows += f"""
+                <tr>
+                    <td>{p['key']}</td>
+                    <td>{p['a']}</td>
+                    <td>{p['b']}</td>
+                </tr>
+                """
+
+            props_html += f"""
+            <div class="block">
+                <h3>{categoria} — {status}</h3>
+                <table>
+                    <tr>
+                        <th>Property</th>
+                        <th>{self.build_a_id}</th>
+                        <th>{self.build_b_id}</th>
+                    </tr>
+                    {rows}
+                </table>
+            </div>
+            """
+
+        # ================= PACKAGES / FEATURES =================
+        pkgs_added = data['pkgs']['added']
+        pkgs_removed = data['pkgs']['removed']
+
+        feats_added = data['feats']['added']
+        feats_removed = data['feats']['removed']
+
+        def build_dual_list(left, right, label_left, label_right):
+            max_len = max(len(left), len(right))
+            rows = ""
+
+            for i in range(max_len):
+                l = left[i] if i < len(left) else ""
+                r = right[i] if i < len(right) else ""
+
+                rows += f"""
+                <tr>
+                    <td>{l}</td>
+                    <td>{r}</td>
+                </tr>
+                """
+
+            return f"""
+            <table>
+                <tr>
+                    <th>{label_left}</th>
+                    <th>{label_right}</th>
+                </tr>
+                {rows}
+            </table>
+            """
+
+        pkgs_table = build_dual_list(
+            [f"- {x}" for x in pkgs_removed],
+            [f"+ {x}" for x in pkgs_added],
+            f"Build A ({self.build_a_id})",
+            f"Build B ({self.build_b_id})"
+        )
+
+        feats_table = build_dual_list(
+            [f"- {x}" for x in feats_removed],
+            [f"+ {x}" for x in feats_added],
+            f"Build A ({self.build_a_id})",
+            f"Build B ({self.build_b_id})"
+        )
+
+        # ================= TEMPLATE =================
+        template_path = resource_path("assets/templates/report_template.html")
+
+        with open(template_path, "r", encoding="utf-8") as f:
+            template = f.read()
+
+        html = template.replace("{{TOTAL_PROPS}}", str(total_props_diff))
+        html = html.replace("{{PROPS_HTML}}", props_html)
+
+        html = html.replace("{{TOTAL_PKGS}}", str(len(pkgs_added) + len(pkgs_removed)))
+        html = html.replace("{{PKGS_TABLE}}", pkgs_table)
+
+        html = html.replace("{{TOTAL_FEATS}}", str(len(feats_added) + len(feats_removed)))
+        html = html.replace("{{FEATS_TABLE}}", feats_table)
+
+        # ================= OUTPUT =================
+        path = tempfile.NamedTemporaryFile(delete=False, suffix=".html").name
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+
+        webbrowser.open(path)
