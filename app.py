@@ -7,6 +7,16 @@ from PIL import Image
 
 from tkinter import messagebox
 
+import ctypes
+
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except:
+        pass
+
 import customtkinter as ctk
 from utils import resource_path, filtrar_props
 
@@ -75,8 +85,8 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.largura_janela = 550
-        self.altura_janela = 600  
+        self.largura_janela = 500
+        self.altura_janela = 600
 
         self.title("Android SW Diff Tool")
 
@@ -467,10 +477,9 @@ class App(ctk.CTk):
         altura = self.altura_janela
 
         tela_largura = self.winfo_screenwidth()
-        tela_altura = self.winfo_screenheight()
 
-        x = int(tela_largura / 2 - largura / 2)
-        y = int(tela_altura / 2 - altura / 2)
+        x = x = int(tela_largura / 2 - largura / 2)
+        y = 0
 
         self.geometry(f"{largura}x{altura}+{x}+{y}")
 
@@ -488,22 +497,37 @@ class App(ctk.CTk):
         props_html = ""
         total_props_diff = 0
 
-        for categoria, props in data['props'].items():
+        # DEPOIS — feature 3: ordena (com mudança primeiro), feature 2: oculta sem diff, feature 8: qtde no status
+        props_items = list(data['props'].items())
+        # Feature 3: grupos com mudança sobem
+        props_items.sort(key=lambda item: calcular_diff_props(item[1]) == 0)
+
+        for categoria, props in props_items:
             if not props:
                 continue
 
             n_diff = calcular_diff_props(props)
             total_props_diff += n_diff
 
+            # Feature 8: mostra qtde no badge
             if n_diff == 0:
                 status_html = '<span class="status ok">✓ Idêntico</span>'
+                # Feature 2: sem mudança → oculto por padrão
+                body_class = 'block-body collapsed'
+                arrow = '▶'
             else:
-                status_html = '<span class="status bad">⚠ Houve mudanças</span>'
+                status_html = f'<span class="status bad">⚠ {n_diff} mudança{"s" if n_diff > 1 else ""}</span>'
+                # Feature 2: com mudança → expandido por padrão
+                body_class = 'block-body'
+                arrow = '▼'
 
             rows = ""
             for p in props:
+                # Feature 1: destaca linha amarela se valor mudou
+                changed = p['a'] != p['b'] and p['a'] != '---' and p['b'] != '---'
+                row_class = ' class="row-changed"' if changed else ''
                 rows += f"""
-                <tr>
+                <tr{row_class}>
                     <td><span class="prop-key">{p['key']}</span></td>
                     <td class="col-a"><div class="value-box">{p['a']}</div></td>
                     <td class="col-b"><div class="value-box">{p['b']}</div></td>
@@ -514,13 +538,13 @@ class App(ctk.CTk):
             <div class="block">
                 <div class="block-header" onclick="toggleBlock(this)">
                     <div class="block-header-left">
-                        <h3>{categoria} <span class="collapse-arrow">▼</span></h3>
+                        <h3>{categoria} <span class="collapse-arrow">{arrow}</span></h3>
                     </div>
                     <div class="block-header-right">
                         {status_html}
                     </div>
                 </div>
-                <div class="block-body">
+                <div class="{body_class}">
                     <table>
                         <thead><tr>
                             <th>Property</th>
@@ -557,8 +581,8 @@ class App(ctk.CTk):
             """
 
         pkgs_table = build_dual_list(
-            [f"- {x}" for x in pkgs_removed],
-            [f"+ {x}" for x in pkgs_added],
+            pkgs_removed,
+            pkgs_added,
             f"Build A  —  {self.build_a_id}",
             f"Build B  —  {self.build_b_id}"
         )
