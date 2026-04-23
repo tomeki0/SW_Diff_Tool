@@ -367,7 +367,7 @@ class App(ctk.CTk):
             if self.device_detected_once:
                 self.status_dot.configure(text_color=self.COLOR_DISCONNECTED)
                 self.status_text.configure(text="Desconectado")
-                sself.log("Dispositivo desconectado.", "aviso")
+                self.log("Dispositivo desconectado.", "aviso")
                 self.device_detected_once = False
 
         self.after(2000, self.check_adb_loop)
