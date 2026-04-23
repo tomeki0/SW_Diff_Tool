@@ -563,8 +563,8 @@ class App(ctk.CTk):
                 <div class="{body_class}">
                     <table>
                         <thead><tr>
-                            <th class="status-head">Status</th>
-                            <th>Property</th>
+                            <th class="status-head" style="font-weight:800;">Status</th>
+                            <th style="font-weight:800;">Property</th>
                             <th class="col-a-head">{self.build_a_id}</th>
                             <th class="col-b-head">{self.build_b_id}</th>
                         </tr></thead>
