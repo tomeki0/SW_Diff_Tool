@@ -83,7 +83,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
-    font-size: 14.5px;
+    font-size: 14px;
     line-height: 1.5;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -187,7 +187,7 @@
     padding: 3px 11px;
     background: var(--surface2);
     color: var(--date-color);  
-    font-size: 16px;
+    font-size: 13px;
     white-space: nowrap;
     font-weight: 600;
   }
@@ -360,8 +360,8 @@
 
   /* fix #6: status mais destacado */
   .status {
-    font-size: 15px;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: 750;
     padding: 3px 10px;
     border-radius: 20px;
     letter-spacing: .3px;
@@ -405,14 +405,14 @@
   th.col-a-head {
     background: var(--col-a);
     color: #fff !important;
-    font-weight: 650;
-    letter-spacing: 0.4px;
+    font-weight: 620;
+    letter-spacing: 1px;
 }
   th.col-b-head {
       background: var(--col-b);
       color: #fff !important;
-      font-weight: 650;
-      letter-spacing: 0.4px;
+      font-weight: 620;
+      letter-spacing: 1px;
   }
 td.col-a { background: var(--color-a-bg); border-left: 2px solid var(--color-a); }
 td.col-b { background: var(--color-b-bg); border-left: 2px solid var(--color-b); }
@@ -564,6 +564,18 @@ td.col-b { background: var(--color-b-bg); border-left: 2px solid var(--color-b);
 
   .status-bad {
     color: #ef4444; /* vermelho */
+  }
+
+  mark.diff-mark {
+    background: rgba(255, 213, 0, 0.35);
+    color: #FFD500;
+    border-radius: 3px;
+    padding: 0 2px;
+    font-weight: 700;
+  }
+  .light mark.diff-mark {
+    background: rgba(202, 138, 4, 0.18);
+    color: #92400e;
   }
 </style>
 </head>
