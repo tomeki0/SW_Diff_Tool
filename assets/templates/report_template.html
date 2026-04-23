@@ -540,9 +540,15 @@ td.col-b { background: var(--color-b-bg); border-left: 2px solid var(--color-b);
 
   /* CSS para summary-count */
   .summary-count {
-    font-size: inherit;
-    font-weight: 700;
+    font-size: 25px;           /* era inherit */
+    font-weight: 900;
     color: #FFD500;
+    text-shadow: 0 0 12px rgba(255, 213, 0, 0.6), 0 0 24px rgba(255, 213, 0, 0.3);
+    line-height: 1;
+  }
+  .light .summary-count {
+    color: #ffa200;
+    text-shadow: 0 0 10px rgba(180, 83, 9, 0.25);
   }
 
   .status-head {
