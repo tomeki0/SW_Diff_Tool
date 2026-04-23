@@ -530,12 +530,23 @@ class App(ctk.CTk):
                 status_icon = "✔" if not changed else "✖"
                 status_class = "status-ok" if not changed else "status-bad"
 
+                IS_FINGERPRINT = "fingerprint" in p['key'].lower() or "vbmeta" in p['key'].lower()
+
+                if changed and IS_FINGERPRINT:
+                    if self.is_same_base_fingerprint(p['a'], p['b']):
+                        val_a_html, val_b_html = self.highlight_diff(p['a'], p['b'])
+                    else:
+                        # totalmente diferente → não highlighta
+                        val_a_html, val_b_html = p['a'], p['b']
+                else:
+                    val_a_html, val_b_html = p['a'], p['b']
+
                 rows += f"""
                 <tr>
                     <td class="status-cell {status_class}">{status_icon}</td>
                     <td><span class="prop-key">{p['key']}</span></td>
-                    <td class="col-a"><div class="value-box">{p['a']}</div></td>
-                    <td class="col-b"><div class="value-box">{p['b']}</div></td>
+                    <td class="col-a"><div class="value-box">{val_a_html}</div></td>
+                    <td class="col-b"><div class="value-box">{val_b_html}</div></td>
                 </tr>
                 """
 
@@ -635,3 +646,34 @@ class App(ctk.CTk):
             f.write(html)
 
         webbrowser.open(path)
+
+    def highlight_diff(self, a, b):
+        """Retorna (html_a, html_b) com partes diferentes em amarelo."""
+        import difflib
+        matcher = difflib.SequenceMatcher(None, a, b)
+        html_a, html_b = "", ""
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            seg_a = a[i1:i2]
+            seg_b = b[j1:j2]
+            if tag == 'equal':
+                html_a += seg_a
+                html_b += seg_b
+            else:
+                if seg_a:
+                    html_a += f'<mark class="diff-mark">{seg_a}</mark>'
+                if seg_b:
+                    html_b += f'<mark class="diff-mark">{seg_b}</mark>'
+        return html_a, html_b
+    
+    def is_same_base_fingerprint(self, a, b):
+        try:
+            pa = a.split("/")
+            pb = b.split("/")
+
+            if len(pa) < 3 or len(pb) < 3:
+                return False
+
+            return pa[0:3] == pb[0:3]
+
+        except:
+            return False
