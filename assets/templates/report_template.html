@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -390,15 +390,22 @@
     background: var(--surface3);
     border-bottom: 2px solid var(--border);
   }
+
   thead th {
     padding: 5px 12px;
     font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .7px;
-    color: var(--muted);
+    color: #ffffff; /* modo claro */
     text-align: left;
   }
+
+  /* modo escuro */
+  .light thead th {
+    color: #004cff;
+  }
+
   thead th:nth-child(1) { width: 75px; align-content: center; font-size: 13px;}   /* Status */
   thead th:nth-child(2) { width: 220px; font-size: 13px;}   /* Property */
 
@@ -680,9 +687,13 @@ td.col-b { background: var(--color-b-bg); border-left: 2px solid var(--color-b);
     document.getElementById('tab-' + name).classList.add('active');
     window.scrollTo(0, 0);
   }
+
   function toggleTheme() {
-    document.documentElement.classList.toggle('light');
+    const root = document.documentElement;
+    const isLight = root.classList.toggle('light');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
   }
+
   function toggleBlock(el) {
     el.closest('.block').classList.toggle('collapsed');
   }
