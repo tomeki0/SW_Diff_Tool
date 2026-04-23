@@ -399,7 +399,8 @@
     color: var(--muted);
     text-align: left;
   }
-  thead th:first-child { width: 235px; }
+  thead th:nth-child(1) { width: 75px; align-content: center; font-size: 12px;}   /* Status */
+  thead th:nth-child(2) { width: 220px; font-size: 12px;}   /* Property */
 
   th.col-a-head {
     background: var(--col-a);
@@ -537,20 +538,32 @@ td.col-b { background: var(--color-b-bg); border-left: 2px solid var(--color-b);
     margin-top: 32px;
   }
 
-  /* linha com mudança destacada */
-  tr.row-changed {
-      background: transparent;
-  }
-  tr.row-changed td:first-child {
-    border-left: 3px solid #FFD500;
-    box-shadow: -6px 0 0 rgba(255,213,0,0.08);
-}
-
   /* CSS para summary-count */
   .summary-count {
     font-size: inherit;
     font-weight: 700;
     color: #FFD500;
+  }
+
+  .status-head {
+    text-align: center;
+    width: 32px;    /* era 60px */
+    padding: 5px 4px;
+  }
+
+  .status-cell {
+    text-align: center;
+    font-size: 14px;
+    width: 32px;    /* era 60px */
+    padding: 5px 4px;
+  }
+
+  .status-ok {
+    color: #22c55e; /* verde */
+  }
+
+  .status-bad {
+    color: #ef4444; /* vermelho */
   }
 </style>
 </head>

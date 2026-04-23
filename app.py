@@ -526,8 +526,13 @@ class App(ctk.CTk):
                 # Feature 1: destaca linha amarela se valor mudou
                 changed = p['a'] != p['b'] and p['a'] != '---' and p['b'] != '---'
                 row_class = ' class="row-changed"' if changed else ''
+
+                status_icon = "✔" if not changed else "✖"
+                status_class = "status-ok" if not changed else "status-bad"
+
                 rows += f"""
-                <tr{row_class}>
+                <tr>
+                    <td class="status-cell {status_class}">{status_icon}</td>
                     <td><span class="prop-key">{p['key']}</span></td>
                     <td class="col-a"><div class="value-box">{p['a']}</div></td>
                     <td class="col-b"><div class="value-box">{p['b']}</div></td>
@@ -547,6 +552,7 @@ class App(ctk.CTk):
                 <div class="{body_class}">
                     <table>
                         <thead><tr>
+                            <th class="status-head">Status</th>
                             <th>Property</th>
                             <th class="col-a-head">{self.build_a_id}</th>
                             <th class="col-b-head">{self.build_b_id}</th>
