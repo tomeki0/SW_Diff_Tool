@@ -197,7 +197,19 @@
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
+
   }
+
+  @media print {
+    .header, .tabs { position: static; }
+    .btn-theme { display: none; }
+    .block.collapsed .block-body { display: block !important; }
+    .panel { display: block !important; padding: 12px 0; }
+    .tabs, nav { display: none; }
+    body { font-size: 11px; }
+    .block { break-inside: avoid; }
+}
+  
   .btn-theme {
     background: transparent;
     border: 1px solid var(--border);
@@ -629,6 +641,7 @@
     </div>
     <div class="header-right">
       <button class="btn-theme" onclick="toggleTheme()">☀ / 🌙</button>
+      <button class="btn-theme" onclick="window.print()">⬇ PDF</button>
       <!-- fix #7: logo produto -->
       <img class="logo-produto" src="{{LOGO_PATH}}" alt=""
            onerror="this.style.display='none'">
