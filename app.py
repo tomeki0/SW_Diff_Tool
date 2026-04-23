@@ -24,6 +24,12 @@ def img_to_base64(path):
     with open(path, "rb") as f:
         return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
+import json
+from pathlib import Path
+from datetime import datetime
+
+PRESETS_DIR = Path.home() / "AndroidSWDiff" / "presets"
+
 class App(ctk.CTk):
 
     COLOR_CONNECTED    = "#4CAF50"
@@ -178,18 +184,45 @@ class App(ctk.CTk):
         )
         self.label_instruction.pack(pady=5)
 
+       # ── BUILD A ──────────────────────────────────────────────────────
+        row_a = ctk.CTkFrame(self, fg_color="transparent")
+        row_a.pack(pady=(10, 4), padx=80, fill="x")
+
         self.btn_a = ctk.CTkButton(
-            self, text="COLETAR BUILD A",
+            row_a, text="COLETAR BUILD A",          # ← pai é row_a, não self
             command=lambda: self.coletar(1), height=50
         )
-        self.btn_a.pack(pady=10, padx=80, fill="x")
+        self.btn_a.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        self.btn_preset_a = ctk.CTkButton(
+            row_a, text="💾",                        # ← pai é row_a
+            command=lambda: self._carregar_preset_como(1),
+            height=50, width=46,
+            fg_color="#2a2a2a",
+            font=("Segoe UI", 18)
+        )
+        self.btn_preset_a.pack(side="left")
+
+        # ── BUILD B ──────────────────────────────────────────────────────
+        row_b = ctk.CTkFrame(self, fg_color="transparent")
+        row_b.pack(pady=(4, 10), padx=80, fill="x")
 
         self.btn_b = ctk.CTkButton(
-            self, text="COLETAR BUILD B",
+            row_b, text="COLETAR BUILD B",          # ← pai é row_b, não self
             command=lambda: self.coletar(2),
             height=50, state="disabled", fg_color="gray"
         )
-        self.btn_b.pack(pady=10, padx=80, fill="x")
+        self.btn_b.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        self.btn_preset_b = ctk.CTkButton(
+            row_b, text="💾",                        # ← pai é row_b
+            command=lambda: self._carregar_preset_como(2),
+            height=50, width=46,
+            fg_color="#2a2a2a",
+            font=("Segoe UI", 18),
+            state="disabled"
+        )
+        self.btn_preset_b.pack(side="left")
 
         self.btn_diff = ctk.CTkButton(
             self, text="GERAR DIFERENÇA GERAL", command=self.gerar_diff,
@@ -402,19 +435,21 @@ class App(ctk.CTk):
             )
 
         self.coletando = False
+        
 
     def gerar_diff(self):
 
         def get_set_from_text(texto):
             return set(l.strip() for l in texto.splitlines() if l.strip())
 
-        pkgs_a = get_set_from_text(self.pkgs_a)
-        pkgs_b = get_set_from_text(self.pkgs_b)
-        feat_a = get_set_from_text(self.feats_a)
-        feat_b = get_set_from_text(self.feats_b)
+        pkgs_a = get_set_from_text(self.pkgs_a) if isinstance(self.pkgs_a, str) else set()
+        pkgs_b = get_set_from_text(self.pkgs_b) if isinstance(self.pkgs_b, str) else set()
+        feat_a = get_set_from_text(self.feats_a) if isinstance(self.feats_a, str) else set()
+        feat_b = get_set_from_text(self.feats_b) if isinstance(self.feats_b, str) else set()
 
-        prop_a = filtrar_props(self.props_a)
-        prop_b = filtrar_props(self.props_b)
+        # suporta tanto dict (preset) quanto string raw (ADB)
+        prop_a = self.props_a if isinstance(self.props_a, dict) else filtrar_props(self.props_a)
+        prop_b = self.props_b if isinstance(self.props_b, dict) else filtrar_props(self.props_b)
 
         data = {
             'pkgs':  {'added': sorted(pkgs_b - pkgs_a), 'removed': sorted(pkgs_a - pkgs_b)},
@@ -677,3 +712,166 @@ class App(ctk.CTk):
 
         except:
             return False
+        
+    def salvar_preset(self, nome: str, props: dict, build_id: str):
+        """Salva as props filtradas de um build como preset nomeado."""
+        PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # sanitiza nome pro filesystem
+        safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in nome).strip()
+        filename = PRESETS_DIR / f"{safe_name}.json"
+        
+        payload = {
+            "nome":     nome,
+            "build_id": build_id,
+            "data":     datetime.now().isoformat(),
+            "props":    props   # dict {chave: valor} já filtrado
+        }
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+        return filename
+
+    def listar_presets(self) -> list[dict]:
+        """Retorna lista de presets salvos ordenados por data."""
+        if not PRESETS_DIR.exists():
+            return []
+        presets = []
+        for f in PRESETS_DIR.glob("*.json"):
+            try:
+                with open(f, encoding="utf-8") as fp:
+                    data = json.load(fp)
+                    data["_file"] = str(f)
+                    presets.append(data)
+            except Exception:
+                continue
+        return sorted(presets, key=lambda x: x.get("data", ""), reverse=True)
+
+    def carregar_preset(self, filepath: str) -> dict:
+        with open(filepath, encoding="utf-8") as f:
+            return json.load(f)
+        
+    def _pedir_nome_preset(self, versao, props_raw, build_id):
+        """Abre um dialog simples para nomear e salvar o preset."""
+        dialog = ctk.CTkInputDialog(
+            text=f"Nome para salvar o preset da Build {versao}:\n(ex: MR1 - Display ID Projeto X)",
+            title="Salvar Preset"
+        )
+        nome = dialog.get_input()
+        if nome and nome.strip():
+            props_filtradas = filtrar_props(props_raw)
+            path = self.salvar_preset(nome.strip(), props_filtradas, build_id)
+            messagebox.showinfo("Preset salvo", f"Salvo em:\n{path}")
+
+    def _carregar_preset_como(self, versao):
+        presets = self.listar_presets()
+
+        win = ctk.CTkToplevel(self)
+        win.title("Presets")
+        win.geometry("520x460")
+        win.grab_set()
+
+        # ── botão salvar o build atual (se já foi coletado) ──────────
+        props_atual = self.props_a if versao == 1 else self.props_b
+        build_atual = self.build_a_id if versao == 1 else self.build_b_id
+
+        if props_atual and build_atual:
+            def _salvar_atual():
+                dialog = ctk.CTkInputDialog(
+                    text=f"Nome para o preset da Build {versao}:\n(ex: MR1 - Projeto X)",
+                    title="Salvar Preset"
+                )
+                nome = dialog.get_input()
+                if nome and nome.strip():
+                    props_f = props_atual if isinstance(props_atual, dict) else filtrar_props(props_atual)
+                    path = self.salvar_preset(nome.strip(), props_f, build_atual)
+                    messagebox.showinfo("Salvo!", f"Preset salvo em:\n{path}")
+                    win.destroy()
+                    # reabre pra mostrar o novo preset na lista
+                    self.after(100, lambda: self._carregar_preset_como(versao))
+
+            ctk.CTkButton(
+                win,
+                text=f"💾  Salvar  [{build_atual}]  como preset",
+                command=_salvar_atual,
+                fg_color="#1e4d2b",
+                hover_color="#2a6b3c",
+                height=38,
+                font=("Segoe UI", 12, "bold")
+            ).pack(fill="x", padx=16, pady=(14, 4))
+
+            ctk.CTkLabel(
+                win, text="── ou carregar um preset existente ──",
+                font=("Segoe UI", 10), text_color="gray"
+            ).pack(pady=(0, 4))
+        else:
+            ctk.CTkLabel(
+                win, text="Carregar preset salvo",
+                font=("Segoe UI", 13, "bold")
+            ).pack(pady=(16, 6))
+
+        # ── lista de presets ─────────────────────────────────────────
+        if not presets:
+            ctk.CTkLabel(win, text="Nenhum preset salvo ainda.",
+                        text_color="gray").pack(pady=20)
+        else:
+            frame = ctk.CTkScrollableFrame(win, height=260)
+            frame.pack(fill="both", expand=True, padx=16, pady=4)
+
+            def selecionar(preset):
+                win.destroy()
+                self._aplicar_preset(versao, preset)
+
+            for p in presets:
+                data_fmt = p.get("data", "")[:16].replace("T", " ")
+                label = f"  {p['nome']}\n  {p['build_id']}  •  {data_fmt}"
+                btn = ctk.CTkButton(
+                    frame,
+                    text=label,
+                    anchor="w",
+                    command=lambda p=p: selecionar(p),
+                    fg_color="transparent",
+                    border_width=1,
+                    text_color=("black", "white"),
+                    hover_color=("#e0e0e0", "#2a2a2a"),
+                    height=52
+                )
+                btn.pack(fill="x", pady=3)
+
+        ctk.CTkButton(
+            win, text="📁 Abrir pasta de presets",
+            command=lambda: (PRESETS_DIR.mkdir(parents=True, exist_ok=True), os.startfile(str(PRESETS_DIR))),
+            fg_color="#444", height=32
+        ).pack(pady=8)
+        
+    def _aplicar_preset(self, versao, preset):
+        """Simula uma coleta usando dados salvos do preset."""
+        build_id = preset["build_id"]
+        # Reconstrói props_raw como texto no formato getprop
+        # (ou guarda direto como dict — ajusta filtrar_props pra aceitar dict)
+        props_dict = preset["props"]
+
+        if versao == 1:
+            self.props_a    = props_dict   # agora é dict direto
+            self.pkgs_a     = ""
+            self.feats_a    = ""
+            self.build_a_id = build_id
+            self.serial_a   = ""
+            self.btn_a.configure(state="disabled", text=f"[PRESET] {build_id}", fg_color="#333333")
+            self.btn_preset_b.configure(state="normal")
+            self.btn_b.configure(state="normal", fg_color="#1f538d")
+            self.label_instruction.configure(
+                text="PASSO 2: Conecte o aparelho B ou use um preset",
+                text_color="#00E5FF"
+            )
+            messagebox.showinfo("Preset carregado", f"Build A: {build_id}")
+        else:
+            self.props_b    = props_dict
+            self.pkgs_b     = ""
+            self.feats_b    = ""
+            self.build_b_id = build_id
+            self.btn_b.configure(state="disabled", text=f"[PRESET] {build_id}", fg_color="#333333")
+            self.btn_diff.configure(state="normal")
+            self.label_instruction.configure(
+                text="PRONTO: Clique no botão verde para ver o diff",
+                text_color="#00C853"
+            )
