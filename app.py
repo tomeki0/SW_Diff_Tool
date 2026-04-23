@@ -234,7 +234,7 @@ class App(ctk.CTk):
         self.status_box = ctk.CTkTextbox(
             self, 
             height=100, 
-            font=("Consolas", 13),
+            font=("Consolas", 12),
             # Tupla: (Fundo no modo Light, Fundo no modo Dark)
             fg_color=("white", "#1a1a1a"), 
             # Tupla: (Texto no modo Light, Texto no modo Dark)
@@ -253,7 +253,7 @@ class App(ctk.CTk):
         ).pack(side="bottom", pady=(0, 8))
 
         # ── inicialização ─────────────────────────────────────────────────
-        self.log("Aguardando conexão ADB...")
+        self.log("Aguardando conexão ADB...", "info")
         self.check_adb_loop()
 
         self.update_idletasks()
@@ -277,6 +277,18 @@ class App(ctk.CTk):
         self.attributes("-alpha", 0.98)
         
         ctk.set_appearance_mode(novo_modo)
+        def _reconfigurar_tags_log(self):
+            is_dark = self._tema_atual == "Dark"
+            mapa = {
+                "tag_info":     "#a0a0b8" if is_dark else "#4b5563",
+                "tag_ok":       "#4ade80" if is_dark else "#16a34a",
+                "tag_erro":     "#f87171" if is_dark else "#dc2626",
+                "tag_aviso":    "#fbbf24" if is_dark else "#d97706",
+                "tag_destaque": "#c084fc" if is_dark else "#7c3aed",
+                "tag_device":   "#38bdf8" if is_dark else "#0369a1",
+            }
+            for tag, cor in mapa.items():
+                self.status_box.tag_config(tag, foreground=cor)
         self.btn_tema.configure(text=texto_botao)
 
         # Sincroniza a barra de título do Windows
@@ -290,9 +302,45 @@ class App(ctk.CTk):
         self.update_idletasks()
         self.update()
         self.attributes("-alpha", 1.0)
+        self._reconfigurar_tags_log() 
 
-    def log(self, msg):
-        self.status_box.insert("end", f"> {msg}\n")
+    def log(self, msg: str, tipo: str = "info"):
+        """
+        tipo: 'info' | 'ok' | 'erro' | 'aviso' | 'destaque'
+        """
+        icons = {
+            "info":     ">> ",
+            "ok":       "[OK] ",
+            "erro":     "[ERRO] ",
+            "aviso":    "[!] ",
+            "destaque": "*** ",
+            "device":   "[DEV] ",
+        }
+        cores_dark = {
+            "info":     "#a0a0b8",
+            "ok":       "#4ade80",
+            "erro":     "#f87171",
+            "aviso":    "#fbbf24",
+            "destaque": "#c084fc",
+            "device":   "#38bdf8",
+        }
+        cores_light = {
+            "info":     "#4b5563",
+            "ok":       "#16a34a",
+            "erro":     "#dc2626",
+            "aviso":    "#d97706",
+            "destaque": "#7c3aed",
+            "device":   "#0369a1",
+        }
+
+        prefixo = icons.get(tipo, "➡️ ")
+        linha = f"{prefixo}{msg}\n"
+
+        tag = f"tag_{tipo}"
+        cor = cores_dark.get(tipo, "#a0a0b8")
+
+        self.status_box.insert("end", linha, tag)
+        self.status_box.tag_config(tag, foreground=cor)
         self.status_box.see("end")
 
     def rodar_adb(self, comando):
@@ -313,13 +361,13 @@ class App(ctk.CTk):
                 self.status_text.configure(
                     text=f"Conectado: {id_build.strip() if id_build else 'Unknown'}"
                 )
-                self.log(f"DEVICE DETECTADO: {id_build.strip() if id_build else 'Unknown'}")
+                self.log(f"Dispositivo conectado: {id_build.strip() if id_build else 'Unknown'}", "device")
                 self.device_detected_once = True
         else:
             if self.device_detected_once:
                 self.status_dot.configure(text_color=self.COLOR_DISCONNECTED)
                 self.status_text.configure(text="Desconectado")
-                self.log("DEVICE DESCONECTADO.\n")
+                sself.log("Dispositivo desconectado.", "aviso")
                 self.device_detected_once = False
 
         self.after(2000, self.check_adb_loop)
@@ -331,7 +379,7 @@ class App(ctk.CTk):
         self.coletando = True
         self.btn_a.configure(state="disabled")
         self.btn_b.configure(state="disabled")
-        self.log(f"Coletando Build {versao}... aguarde")
+        self.log(f"Iniciando coleta da Build {versao}...", "info")
 
         def _coleta_worker():
             display_id = self.get_device_id()
@@ -393,7 +441,7 @@ class App(ctk.CTk):
             self.btn_b.configure(state="normal")
 
     def _aplicar_coleta(self, versao, display_id, props, pkgs, feats):
-        self.log(f"Coleta Build {versao} concluída: {display_id}\n")
+        self.log(f"Build {versao} coletada com sucesso: {display_id}", "ok")
 
         if versao == 1:
             self.props_a    = props
@@ -471,7 +519,7 @@ class App(ctk.CTk):
         return self.rodar_adb(["adb", "shell", "getprop", "ro.build.display.id"])
 
     def resetar(self):
-        self.log("Resetando estado...\n")
+        self.log("Estado resetado.", "aviso")
 
         if self.report_window and self.report_window.winfo_exists():
             self.report_window.destroy()
@@ -681,6 +729,7 @@ class App(ctk.CTk):
             f.write(html)
 
         webbrowser.open(path)
+        self.log("Relatório gerado com sucesso!", "destaque")
 
     def highlight_diff(self, a, b):
         """Retorna (html_a, html_b) com partes diferentes em amarelo."""
@@ -823,10 +872,14 @@ class App(ctk.CTk):
 
             for p in presets:
                 data_fmt = p.get("data", "")[:16].replace("T", " ")
-                label = f"  {p['nome']}\n  {p['build_id']}  •  {data_fmt}"
+
+                # ── linha por preset ─────────────────────────────────────────
+                row = ctk.CTkFrame(frame, fg_color="transparent")
+                row.pack(fill="x", pady=3)
+
                 btn = ctk.CTkButton(
-                    frame,
-                    text=label,
+                    row,
+                    text=f"  {p['nome']}\n  {p['build_id']}  •  {data_fmt}",
                     anchor="w",
                     command=lambda p=p: selecionar(p),
                     fg_color="transparent",
@@ -835,7 +888,31 @@ class App(ctk.CTk):
                     hover_color=("#e0e0e0", "#2a2a2a"),
                     height=52
                 )
-                btn.pack(fill="x", pady=3)
+                btn.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+                def _excluir(p=p, r=row):
+                    confirmar = messagebox.askyesno(
+                        "Excluir Preset",
+                        f"Excluir '{p['nome']}'?\n{p['build_id']}"
+                    )
+                    if confirmar:
+                        try:
+                            Path(p["_file"]).unlink()
+                        except Exception as e:
+                            messagebox.showerror("Erro", f"Não foi possível excluir:\n{e}")
+                            return
+                        r.destroy()  # remove a linha da UI sem fechar a janela
+
+                ctk.CTkButton(
+                    row,
+                    text="🗑",
+                    command=_excluir,
+                    width=40,
+                    height=52,
+                    fg_color="#5a1a1a",
+                    hover_color="#7f2020",
+                    font=("Segoe UI", 16)
+                ).pack(side="left")
 
         ctk.CTkButton(
             win, text="📁 Abrir pasta de presets",
