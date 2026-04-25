@@ -96,7 +96,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.5;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -389,25 +389,34 @@
 
   .block-header-right { display: flex; align-items: center; gap: 8px; }
 
-  /* fix #6: status mais destacado */
   .status {
-    font-size: 13px;
-    font-weight: 750;
-    padding: 3px 10px;
+    font-size: 13.7px;
+    font-weight: 800;
+    padding: 2px 8px;
     border-radius: 20px;
     letter-spacing: .3px;
     text-transform: uppercase;
     border: 1px solid transparent;
   }
+
   .status.ok {
-    background: var(--ok-bg);
-    color: var(--ok-fg);
-    border-color: rgba(120,216,152,.25);
+    background: #16a34a;
+    color: #ffffff;
+    border-color: transparent;
+    transition: all 0.15s ease;
   }
+
   .status.bad {
-    background: var(--bad-bg);
-    color: var(--bad-fg);
-    border-color: rgba(240,168,88,.25);
+    background: rgba(255, 0, 0, 0.26);
+    color: #fde047;
+    border: 1px solid rgba(250, 204, 21, 0.25);
+  }
+
+  .light .status.bad {
+    background: #dc2626; /* vermelho forte */
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
   }
 
   .block-body { overflow: hidden; }
