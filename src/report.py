@@ -4,8 +4,41 @@ import webbrowser
 from datetime import datetime
 
 from utils import resource_path, img_to_base64
-from diff_engine import is_changed, process_prop_value, calcular_diff_props
+from diff_engine import (
+    is_changed,
+    process_prop_value,
+    calcular_diff_props,
+    parse_packages_with_path
+)
 
+def classificar_por_path(path):
+    if not path:
+        return "unknown"
+
+    if path.startswith("/system_ext"):
+        return "system_ext"
+    elif path.startswith("/system"):
+        return "system"
+    elif path.startswith("/vendor"):
+        return "vendor"
+    elif path.startswith("/product"):
+        return "product"
+    elif path.startswith("/data"):
+        return "data"
+    else:
+        return "other"
+
+
+def agrupar_por_partition(lista, path_map):
+    grupos = {}
+
+    for pkg in lista:
+        path = path_map.get(pkg, "")
+        grupo = classificar_por_path(path)
+
+        grupos.setdefault(grupo, []).append(pkg)
+
+    return grupos
 
 def comparar_apks(apk_a: dict, apk_b: dict) -> list[str]:
     alertas = []
@@ -84,7 +117,12 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback):
             rows += f"""
             <tr{row_class}>
                 <td class="status-cell {status_class}">{status_icon}</td>
-                <td><span class="prop-key">{p['key']}</span></td>
+                <td>
+                    <div style="display:flex; align-items:flex-start; gap:6px;">
+                        <span class="prop-key">{p['key']}</span>
+                        <button class="btn-focus" onclick="toggleFocus(this)">🔍</button>
+                    </div>
+                </td>
                 <td class="col-a"><div class="value-box">{val_a_html}</div></td>
                 <td class="col-b"><div class="value-box">{val_b_html}</div></td>
             </tr>
@@ -121,12 +159,71 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback):
         </div>
         """
 
+    def diff_packages(pkgs_a, pkgs_b):
+        result = []
+
+        all_pkgs = set(pkgs_a.keys()) | set(pkgs_b.keys())
+
+        for pkg in sorted(all_pkgs):
+            a = pkgs_a.get(pkg)
+            b = pkgs_b.get(pkg)
+
+            if a and not b:
+                result.append({"pkg": pkg, "type": "removed", "a": a, "b": ""})
+
+            elif b and not a:
+                result.append({"pkg": pkg, "type": "added", "a": "", "b": b})
+
+            elif (a or "").strip() != (b or "").strip():
+                result.append({
+                    "pkg": pkg,
+                    "type": "changed",
+                    "a": (a or "").strip(),
+                    "b": (b or "").strip()
+                })
+
+        return result
+    
     # ================= PACKAGES / FEATURES =================
     pkgs_added = data['pkgs']['added']
     pkgs_removed = data['pkgs']['removed']
+    
+    pkgs_path_a = parse_packages_with_path(data.get("raw_pkgs_a", ""))
+    pkgs_path_b = parse_packages_with_path(data.get("raw_pkgs_b", ""))
+    
+    pkgs_diff = diff_packages(pkgs_path_a, pkgs_path_b)
+    
+    pkgs_added_grouped = agrupar_por_partition(pkgs_added, pkgs_path_b)
+    pkgs_removed_grouped = agrupar_por_partition(pkgs_removed, pkgs_path_a)
+    
     feats_added = data['feats']['added']
     feats_removed = data['feats']['removed']
+    
+    # ==========================================================
+    # DEBUG PACKAGES (DESATIVADO)
+    #
+    # Usado para validar parsing de packages e paths.
+    # Pode ser reativado se houver problema de matching
+    # ou inconsistência entre builds.
+    # ==========================================================
 
+    # print("\n=== DEBUG RAW PKGS A ===")
+    # print(data.get("raw_pkgs_a", "")[:300])
+
+    # print("\n=== DEBUG RAW PKGS B ===")
+    # print(data.get("raw_pkgs_b", "")[:300])
+
+    # print("\n=== TESTE MATCH ===")
+    # print("facebook in path A?", "com.facebook.lite" in pkgs_path_a)
+    # print("facebook in path B?", "com.facebook.lite" in pkgs_path_b)
+
+    # print("\n=== PROCURA REAL ===")
+    # for k in list(pkgs_path_a.keys())[:20]:
+    #     print(k)
+
+    # print("TOTAL:", len(pkgs_path_a))
+    # ==========================================================
+        
     def build_dual_list(left, right, label_left, label_right):
         max_len = max(len(left), len(right), 1)
         rows = ""
@@ -143,13 +240,118 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback):
         {rows}
         </table>
         """
+    
+    def build_pkg_diff_table(diff, build_a, build_b):
+        rows = ""
 
-    pkgs_table = build_dual_list(
-        pkgs_removed,
-        pkgs_added,
-        f"Build A  —  {build_a_id}",
-        f"Build B  —  {build_b_id}"
-    )
+        for item in diff:
+            pkg = item["pkg"]
+            a = item["a"]
+            b = item["b"]
+            t = item["type"]
+
+            if t == "added":
+                status = "➕"
+                cls = "row-added"
+            elif t == "removed":
+                status = "➖"
+                cls = "row-removed"
+            else:
+                status = "⚠"
+                cls = "row-changed"
+
+            rows += f"""
+            <tr class="{cls}">
+                <td class="status-cell">{status}</td>
+                <td class="prop-key">{html.escape(pkg)}</td>
+                <td class="col-a"><div class="value-box">{html.escape(a)}</div></td>
+                <td class="col-b"><div class="value-box">{html.escape(b)}</div></td>
+            </tr>
+            """
+
+        return f"""
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Package</th>
+                    <th>{build_a}</th>
+                    <th>{build_b}</th>
+                </tr>
+            </thead>
+            <tbody>{rows}</tbody>
+        </table>
+        """
+        
+    pkgs_table = build_pkg_diff_table(pkgs_diff, build_a_id, build_b_id)
+    
+    # ================= NOVA UI PACKAGES =================
+
+    def render_grouped(grupos):
+        html = ""
+
+        for grupo, items in grupos.items():
+            if not items:
+                continue
+
+            html += f"""
+            <div class="pkg-group">
+                <div class="pkg-group-title">
+                    {grupo.upper()} <span class="count">({len(items)})</span>
+                </div>
+                <div class="pkg-list">
+            """
+
+            for pkg in sorted(items):
+                html += f'<div class="pkg-item">{html_escape(pkg)}</div>'
+
+            html += "</div></div>"
+
+        return html
+
+    from html import escape as html_escape
+
+    pkgs_summary_html = f"""
+    <div class="pkg-summary-advanced">
+        <div class="pkg-summary-title">📦 Packages exclusivos</div>
+
+        <div class="pkg-summary-grid">
+            <div class="pkg-box a">
+                <div class="label">Build A</div>
+                <div class="value">{len(pkgs_removed)}</div>
+            </div>
+
+            <div class="pkg-box b">
+                <div class="label">Build B</div>
+                <div class="value">{len(pkgs_added)}</div>
+            </div>
+        </div>
+    </div>
+    """
+
+    pkgs_cards_html = f"""
+    <div class="pkg-container">
+
+        <div class="pkg-card">
+            <div class="pkg-header" onclick="togglePkg(this)">
+                {build_a_id} — {len(pkgs_removed)} exclusivos
+            </div>
+            <div class="pkg-body">
+                {render_grouped(pkgs_removed_grouped)}
+            </div>
+        </div>
+
+        <div class="pkg-card">
+            <div class="pkg-header" onclick="togglePkg(this)">
+                {build_b_id} — {len(pkgs_added)} exclusivos
+            </div>
+            <div class="pkg-body">
+                {render_grouped(pkgs_added_grouped)}
+            </div>
+        </div>
+
+    </div>
+    """
 
     feats_table = build_dual_list(
         [f"- {x}" for x in feats_removed],
@@ -180,7 +382,10 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback):
     html_content = html_content.replace("{{PROPS_HTML}}", props_html)
 
     html_content = html_content.replace("{{TOTAL_PKGS}}", str(len(pkgs_added) + len(pkgs_removed)))
-    html_content = html_content.replace("{{PKGS_TABLE}}", pkgs_table)
+    html_content = html_content.replace(
+        "{{PKGS_TABLE}}",
+        pkgs_summary_html + pkgs_cards_html
+    )
 
     html_content = html_content.replace("{{TOTAL_FEATS}}", str(len(feats_added) + len(feats_removed)))
     html_content = html_content.replace("{{FEATS_TABLE}}", feats_table)

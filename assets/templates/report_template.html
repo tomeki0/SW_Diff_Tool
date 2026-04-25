@@ -237,10 +237,12 @@
     font-family: var(--font);
   }
   .btn-theme:hover { border-color: var(--accent); color: var(--accent); }
-  /* logo produto (fix #7: com onerror mais robusto) */
+ 
   .logo-produto {
     height: 62px;
-    margin-top: 2px;   
+    margin-top: 6px;   
+    margin-bottom: 6px;
+    margin-left: 12px;
     width: auto;
     object-fit: contain;
     opacity: .8;
@@ -332,10 +334,11 @@
     color: var(--text);
     line-height: 1;
   }
+
   .changes-badge .label {
     font-size: inherit;
-    font-weight: inherit;
-    color: var(--text2);
+    font-weight: 700;
+    color: var(--text);
 }
 
   /* ── BLOCOS ──────────────────────────────────────────────────── */
@@ -388,7 +391,7 @@
   }
   .block.collapsed .collapse-arrow { transform: rotate(-90deg); }
 
-  .block-header-right { display: flex; align-items: center; gap: 8px; }
+  .block-header-right { display: flex; align-items: center; gap: 16px; }
 
   
   .block + .block {
@@ -647,11 +650,11 @@
     font-size: 25px;           /* era inherit */
     font-weight: 900;
     color: #FFD500;
-    text-shadow: 0 0 12px rgba(255, 213, 0, 0.6), 0 0 24px rgba(255, 213, 0, 0.3);
+    text-shadow: 0 0 6px rgba(250, 204, 21, 0.4);
     line-height: 1;
   }
   .light .summary-count {
-    color: #ffa200;
+    color: #d97706;
     text-shadow: 0 0 10px rgba(180, 83, 9, 0.25);
   }
 
@@ -688,9 +691,17 @@
     padding: 0 2px;
     font-weight: 700;
   }
+
   .light mark.diff-mark {
     background: rgba(202, 138, 4, 0.18);
     color: #92400e;
+  }
+
+  .pkg-item mark {
+    background: rgba(250,204,21,0.25);
+    color: #facc15;
+    border-radius: 3px;
+    padding: 0 2px;
   }
 
   .block.collapsed .block-body {
@@ -764,6 +775,169 @@
   .row-focused {
     opacity: 1 !important;
     transform: scale(1.01);
+  }
+
+  /* ==========================================================
+   PACKAGES UI (FINAL LIMPO)
+   ========================================================== */
+
+  /* ROOT */
+  .pkg-root {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ================= SUMMARY ================= */
+
+  .pkg-summary-advanced {
+    margin-bottom: 16px;
+  }
+
+  .pkg-summary-title {
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .pkg-summary-grid {
+    display: flex;
+    gap: 12px;
+  }
+
+  .pkg-box {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .pkg-box .label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .pkg-box .value {
+    font-size: 22px;
+    font-weight: 900;
+  }
+
+  .pkg-box.a .value { color: var(--col-a); }
+  .pkg-box.b .value { color: var(--col-b); }
+  .pkg-box.diff .value { color: #f59e0b; }
+
+  /* ================= CARDS ================= */
+
+  .pkg-container {
+    display: flex;
+    gap: 16px;
+  }
+
+  /* identidade visual A vs B */
+  .pkg-card:nth-child(1) {
+    border-left: 3px solid var(--col-a);
+  }
+
+  .pkg-card:nth-child(2) {
+    border-left: 3px solid var(--col-b);
+  }
+
+  .pkg-card {
+    flex: 1;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  /* HEADER */
+  .pkg-header {
+    padding: 12px;
+    cursor: pointer;
+    background: var(--surface2);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.15s ease;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .pkg-header:hover {
+    filter: brightness(1.05);
+  }
+
+  .pkg-card:nth-child(1) .pkg-header {
+    background: rgba(37,99,235,0.12);
+    color: var(--col-a);
+  }
+
+  .pkg-card:nth-child(2) .pkg-header {
+    background: rgba(124,58,237,0.12);
+    color: var(--col-b);
+  }
+
+  /* BODY */
+  .pkg-body {
+    display: none;
+    padding: 10px;
+  }
+
+  .pkg-card.open .pkg-body {
+    display: block;
+  }
+
+  /* ================= GROUP ================= */
+
+  .pkg-group {
+    margin-bottom: 12px;
+  }
+
+  .pkg-group-title {
+    font-weight: 800;
+    font-size: 12px;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  /* ================= ITEMS ================= */
+
+  .pkg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pkg-item {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--surface3);
+  }
+
+  #pkgSearchCount {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .pkg-header::before {
+    content: "▶";
+    margin-right: 6px;
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+
+  .pkg-card.open .pkg-header::before {
+    content: "▼";
   }
 </style>
 </head>
@@ -848,7 +1022,30 @@
 
       {{APK_ALERTS}}
 
-    <div class="list-wrap">{{PKGS_TABLE}}</div>
+      <input
+        type="text"
+        id="pkgSearch"
+        placeholder="🔍 Buscar package..."
+        oninput="filterPackages(this)"
+        style="
+          width: 100%;
+          padding: 8px 10px;
+          margin-bottom: 12px;
+          border-radius: 6px;
+          border: 1px solid var(--border);
+          background: var(--surface2);
+          color: var(--text);
+        "
+      >
+
+      <div id="pkgSearchCount" style="
+        font-size: 11px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      ">
+        Resultados: 0
+      </div>
+    <div class="pkg-root">{{PKGS_TABLE}}</div>
   </div>
 </section>
 
@@ -967,6 +1164,114 @@
 
     row.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+
+  function togglePkg(el) {
+    const card = el.closest(".pkg-card");
+    const container = el.closest(".pkg-container");
+    const allCards = container.querySelectorAll(".pkg-card");
+
+    const isOpen = card.classList.contains("open");
+
+    allCards.forEach(c => c.classList.remove("open"));
+
+    if (!isOpen) {
+        card.classList.add("open");
+    }
+  }
+
+  function filterPackages(input) {
+    const query = input.value.toLowerCase();
+
+    const cards = document.querySelectorAll(".pkg-card");
+
+    cards.forEach(card => {
+        let cardHasVisible = false;
+
+        card.querySelectorAll(".pkg-group").forEach(group => {
+            let hasVisible = false;
+
+            group.querySelectorAll(".pkg-item").forEach(el => {
+                const original = el.dataset.original || el.textContent;
+
+                if (!el.dataset.original) {
+                    el.dataset.original = original;
+                }
+
+                const text = original.toLowerCase();
+
+                if (text.includes(query)) {
+                    el.style.display = "";
+                    hasVisible = true;
+                    cardHasVisible = true;
+
+                    // 🔥 AUTO EXPAND (SÓ QUANDO TEM BUSCA)
+                    if (query.length > 0) {
+                        if (cardHasVisible) {
+                            card.classList.add("open");
+                            if (header.innerHTML.includes("▶")) {
+                                header.innerHTML = header.innerHTML.replace("▶", "▼");
+                            }
+                        } else {
+                            card.classList.remove("open");
+                            if (header.innerHTML.includes("▼")) {
+                                header.innerHTML = header.innerHTML.replace("▼", "▶");
+                            }
+                        }
+                    }
+
+                } else {
+                    el.style.display = "none";
+                }
+            });
+
+            // esconde grupo vazio
+            group.style.display = hasVisible ? "" : "none";
+        });
+
+        const header = card.querySelector(".pkg-header");
+
+        // 🔥 AUTO EXPAND
+        if (query.length > 0) {
+            if (cardHasVisible) {
+                card.classList.add("open");
+                if (header.innerHTML.includes("▶")) {
+                    header.innerHTML = header.innerHTML.replace("▶", "▼");
+                }
+            } else {
+                card.classList.remove("open");
+                if (header.innerHTML.includes("▼")) {
+                    header.innerHTML = header.innerHTML.replace("▼", "▶");
+                }
+            }
+        }
+    });
+
+    // 🔥 RESET QUANDO LIMPA BUSCA
+    if (query.length === 0) {
+        // NÃO mexe nos cards → deixa o toggle manual controlar
+        const counter = document.getElementById("pkgSearchCount");
+        if (counter) {
+            counter.innerText = "Resultados: 0";
+        }
+        return; // 🔥 ESSENCIAL
+    }
+
+    // 🔥 CONTADOR REAL (CORRETO)
+    const totalVisible = document.querySelectorAll(".pkg-item:not([style*='display: none'])").length;
+
+    const counter = document.getElementById("pkgSearchCount");
+
+    if (counter) {
+        counter.innerText = `Resultados: ${totalVisible}`;
+    }
+  }
+
+  document.querySelectorAll(".pkg-header").forEach(header => {
+    header.addEventListener("click", function(e) {
+        e.stopPropagation();
+        togglePkg(this);
+    });
+  });
 </script>
 </body>
 </html>

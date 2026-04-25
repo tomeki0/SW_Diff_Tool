@@ -39,7 +39,7 @@ def get_serial():
 
 def coletar_dados():
     props = adb_shell(["getprop"])
-    pkgs  = adb_shell(["pm", "list", "packages"])
+    pkgs  = adb_shell(["pm", "list", "packages", "-f"])
     feats = adb_shell(["pm", "list", "features"])
     return props, pkgs, feats
 

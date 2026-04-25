@@ -7,7 +7,13 @@ from adb import (
     coletar_dados
 )
 
-from diff_engine import is_changed, process_prop_value, calcular_diff_props
+from diff_engine import (
+    is_changed,
+    process_prop_value,
+    calcular_diff_props,
+    parse_packages_with_path
+)
+
 from report import gerar_html_report
 
 import os
@@ -477,15 +483,38 @@ class App(ctk.CTk):
             )
 
         self.coletando = False
+        print("LEN PKGS A:", len(self.pkgs_a.splitlines()))
         
 
     def gerar_diff(self):
 
         def get_set_from_text(texto):
-            return set(l.strip() for l in texto.splitlines() if l.strip())
+            result = set()
 
-        pkgs_a = get_set_from_text(self.pkgs_a) if isinstance(self.pkgs_a, str) else set()
-        pkgs_b = get_set_from_text(self.pkgs_b) if isinstance(self.pkgs_b, str) else set()
+            for line in texto.splitlines():
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                # 🔥 NOVO: extrair só o package
+                if "=" in line:
+                    try:
+                        pkg = line.split("=")[-1]
+                        result.add(pkg)
+                    except:
+                        continue
+                else:
+                    result.add(line)
+
+            return result
+
+        pkgs_path_a = parse_packages_with_path(self.pkgs_a) if isinstance(self.pkgs_a, str) else {}
+        pkgs_path_b = parse_packages_with_path(self.pkgs_b) if isinstance(self.pkgs_b, str) else {}
+
+        pkgs_a = set(pkgs_path_a.keys())
+        pkgs_b = set(pkgs_path_b.keys())
+        
         feat_a = get_set_from_text(self.feats_a) if isinstance(self.feats_a, str) else set()
         feat_b = get_set_from_text(self.feats_b) if isinstance(self.feats_b, str) else set()
 
@@ -498,7 +527,9 @@ class App(ctk.CTk):
             'feats': {'added': sorted(feat_b - feat_a), 'removed': sorted(feat_a - feat_b)},
             'props': {},
             'apk_info_a': self.apk_info_a,
-            'apk_info_b': self.apk_info_b
+            'apk_info_b': self.apk_info_b,
+            'raw_pkgs_a': self.pkgs_a,
+            'raw_pkgs_b': self.pkgs_b,
         }
 
         for categoria, keys in self.IMPORTANT_PROPS.items():

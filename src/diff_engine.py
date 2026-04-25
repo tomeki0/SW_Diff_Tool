@@ -3,6 +3,9 @@ import html
 
 def highlight_diff(a, b):
     
+    a = a or ""
+    b = b or ""
+    
     if a == b:
         return html.escape(a), html.escape(b)
     
@@ -43,7 +46,7 @@ def process_prop_value(key, val_a, val_b):
     changed = is_changed(val_a, val_b)
 
     if not changed:
-        return val_a, val_b
+        return html.escape(val_a or ""), html.escape(val_b or "")
 
     key_lower = key.lower()
 
@@ -84,4 +87,33 @@ def calcular_diff_props(props):
     )
     
 def is_changed(a, b):
+    a = (a or "").strip()
+    b = (b or "").strip()
     return a != b and a != '---' and b != '---'
+
+def parse_packages_with_path(raw_text):
+    result = {}
+
+    if not raw_text:
+        return result
+
+    for line in raw_text.splitlines():
+        line = line.strip()
+
+        if not line.startswith("package:"):
+            continue
+
+        clean = line.replace("package:", "")
+
+        if "=" not in clean:
+            continue  # ignora linhas quebradas
+
+        path_part, pkg = clean.rsplit("=", 1)
+
+        pkg = pkg.strip()
+        path_part = path_part.strip()
+
+        if pkg:
+            result[pkg] = path_part
+
+    return result
