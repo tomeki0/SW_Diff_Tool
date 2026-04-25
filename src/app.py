@@ -1,5 +1,12 @@
+from adb import (
+    rodar_adb,
+    get_device_id,
+    is_device_connected,
+    get_serial,
+    coletar_dados
+)
+
 import os
-import subprocess
 import threading
 import pywinstyles
 import base64
@@ -343,23 +350,15 @@ class App(ctk.CTk):
         self.status_box.tag_config(tag, foreground=cor)
         self.status_box.see("end")
 
-    def rodar_adb(self, comando):
-        try:
-            res = subprocess.run(comando, capture_output=True, text=True, timeout=12)
-            return res.stdout if res.returncode == 0 else None
-        except Exception:
-            return None
-
     def check_adb_loop(self):
-        out = self.rodar_adb(["adb", "get-state"])
-        current_state = True if out and "device" in out else False
+        current_state = is_device_connected()
 
         if current_state:
             if not self.device_detected_once:
-                id_build = self.get_device_id()
+                id_build = (get_device_id() or "").strip()
                 self.status_dot.configure(text_color=self.COLOR_CONNECTED)
                 self.status_text.configure(
-                    text=f"Conectado: {id_build.strip() if id_build else 'Unknown'}"
+                    text=f"Conectado: {id_build or 'Unknown'}"
                 )
                 self.log(f"Dispositivo conectado: {id_build.strip() if id_build else 'Unknown'}", "device")
                 self.device_detected_once = True
@@ -382,15 +381,13 @@ class App(ctk.CTk):
         self.log(f"Iniciando coleta da Build {versao}...", "info")
 
         def _coleta_worker():
-            display_id = self.get_device_id()
+            display_id = (get_device_id() or "").strip()
             if not display_id:
                 self.after(0, lambda: messagebox.showerror("Erro", "Dispositivo não encontrado."))
                 self.after(0, self._liberar_coleta_erro, versao)
                 return
 
-            props = self.rodar_adb(["adb", "shell", "getprop"])
-            pkgs  = self.rodar_adb(["adb", "shell", "pm", "list", "packages"])
-            feats = self.rodar_adb(["adb", "shell", "pm", "list", "features"])
+            props, pkgs, feats = coletar_dados()
 
             if not all([props, pkgs, feats]):
                 self.after(0, lambda: messagebox.showerror(
@@ -402,7 +399,7 @@ class App(ctk.CTk):
                 return
 
             if versao == 2 and self.serial_a:
-                serial_atual = (self.rodar_adb(["adb", "get-serialno"]) or "").strip()
+                serial_atual = get_serial()
                 if serial_atual and serial_atual == self.serial_a:
                     continuar = [False]
 
@@ -448,7 +445,7 @@ class App(ctk.CTk):
             self.pkgs_a     = pkgs
             self.feats_a    = feats
             self.build_a_id = display_id
-            self.serial_a   = (self.rodar_adb(["adb", "get-serialno"]) or "").strip()
+            self.serial_a   = get_serial() or ""
 
             self.btn_a.configure(
                 state="disabled",
@@ -514,9 +511,6 @@ class App(ctk.CTk):
 
         # 🔥 novo fluxo direto
         self.gerar_html_report(data)
-
-    def get_device_id(self):
-        return self.rodar_adb(["adb", "shell", "getprop", "ro.build.display.id"])
 
     def resetar(self):
         self.log("Estado resetado.", "aviso")

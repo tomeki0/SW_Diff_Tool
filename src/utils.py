@@ -1,7 +1,11 @@
 import sys, os, re
 
 def resource_path(relative_path):
-    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    if hasattr(sys, '_MEIPASS'):
+        base = sys._MEIPASS
+    else:
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
     return os.path.join(base, relative_path)
 
 # Removido o 'self', pois agora é uma função solta
