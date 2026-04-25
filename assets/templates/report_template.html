@@ -42,6 +42,15 @@
     --page-px: 28px;
   }
 
+  .row-changed {
+    background-color: rgba(255, 193, 7, 0.06);
+    transition: background-color 0.15s ease;
+  }
+
+  .row-changed:hover {
+      background-color: rgba(255, 193, 7, 0.12);
+  }
+
   tr:not(.row-changed) .value-box {
     opacity: 0.95;
   }
@@ -225,13 +234,19 @@
   .btn-theme:hover { border-color: var(--accent); color: var(--accent); }
   /* logo produto (fix #7: com onerror mais robusto) */
   .logo-produto {
-  height: 62px;
-  margin-top: 2px;   
-  width: auto;
-  object-fit: contain;
-  opacity: .8;
-  display: block;
-}
+    height: 62px;
+    margin-top: 2px;   
+    width: auto;
+    object-fit: contain;
+    opacity: .8;
+    display: block;
+  }
+
+  .btn-filter.active {
+    background: #444;
+    color: #fff;
+    transition: all 0.2s ease;
+  }
 
   /* ── TABS ────────────────────────────────────────────────────── */
   .tabs {
@@ -618,6 +633,46 @@
     background: rgba(202, 138, 4, 0.18);
     color: #92400e;
   }
+
+  .block.collapsed .block-body {
+    display: none;
+  }
+
+  .block.expanded .block-body {
+    display: block;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    gap: 4px;
+  }
+
+.btn-filter.active {
+    background: #444;
+    color: #fff;
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: 6px;
+  }
+
+  .filter-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .apk-alert {
+    background: #3a1f1f;
+    color: #ff6b6b;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
@@ -642,7 +697,7 @@
     <div class="header-right">
       <button class="btn-theme" onclick="toggleTheme()">☀ / 🌙</button>
       <button class="btn-theme" onclick="window.print()">⬇ PDF</button>
-      <!-- fix #7: logo produto -->
+   
       <img class="logo-produto" src="{{LOGO_PATH}}" alt=""
            onerror="this.style.display='none'">
     </div>
@@ -667,9 +722,25 @@
 <!-- PROPERTIES -->
 <section id="props" class="panel active">
   <div class="panel-inner">
-    <div class="changes-badge">
-      <span class="summary-count">{{TOTAL_PROPS}}</span>
-      <span class="label">propriedade(s) com diferença</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+
+        <div class="changes-badge">
+            <span class="summary-count">{{TOTAL_PROPS}}</span>
+            <span class="label">propriedade(s) com diferença</span>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-label">Visualização</span>
+          <div class="filter-buttons">
+              <button class="btn-theme btn-filter active" onclick="setFilter(true, this)">
+                  🔍 Só diferenças
+              </button>
+              <button class="btn-theme btn-filter" onclick="setFilter(false, this)">
+                  👁️ Mostrar tudo
+              </button>
+          </div>
+      </div>
+
     </div>
     {{PROPS_HTML}}
   </div>
@@ -682,6 +753,11 @@
       <span class="summary-count">{{TOTAL_PKGS}}</span>
       <span class="label">pacote(s) diferente(s)</span>
     </div>
+
+    <div class="apk-alerts">
+      {{APK_ALERTS}}
+    </div>
+
     <div class="list-wrap">{{PKGS_TABLE}}</div>
   </div>
 </section>
@@ -716,9 +792,60 @@
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
   }
 
-  function toggleBlock(el) {
-    el.closest('.block').classList.toggle('collapsed');
+  function toggleBlock(header) {
+    const block = header.closest(".block");
+    const arrow = header.querySelector(".collapse-arrow");
+
+    if (block.classList.contains("collapsed")) {
+        block.classList.remove("collapsed");
+        block.classList.add("expanded");
+        if (arrow) arrow.innerText = "▼";
+    } else {
+        block.classList.remove("expanded");
+        block.classList.add("collapsed");
+        if (arrow) arrow.innerText = "▶";
+    }
   }
+
+  let onlyChanged = true;
+
+  function setFilter(showOnlyDiff, btn) {
+
+      onlyChanged = showOnlyDiff;
+
+      document.querySelectorAll(".btn-filter").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      document.querySelectorAll(".block").forEach(block => {
+          const hasDiff = block.dataset.hasDiff === "true";
+
+          if (!hasDiff) {
+              if (onlyChanged) {
+                  block.classList.remove("expanded");
+                  block.classList.add("collapsed");
+              } else {
+                  block.classList.remove("collapsed");
+                  block.classList.add("expanded");
+              }
+          } else {
+              block.querySelectorAll("tbody tr").forEach(row => {
+                  if (!row.classList.contains("row-changed")) {
+                      row.style.display = onlyChanged ? "none" : "";
+                  }
+              });
+
+              if (!onlyChanged) {
+                  block.classList.remove("collapsed");
+                  block.classList.add("expanded");
+              }
+          }
+      });
+  }
+
+  window.addEventListener("load", () => {
+    const btn = document.querySelector(".btn-filter.active");
+    if (btn) setFilter(true, btn);
+  });
 </script>
 </body>
 </html>

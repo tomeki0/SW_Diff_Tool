@@ -1,6 +1,11 @@
 import difflib
+import html
 
 def highlight_diff(a, b):
+    
+    if a == b:
+        return html.escape(a), html.escape(b)
+    
     matcher = difflib.SequenceMatcher(None, a, b)
     html_a, html_b = "", ""
 
@@ -9,13 +14,13 @@ def highlight_diff(a, b):
         seg_b = b[j1:j2]
 
         if tag == 'equal':
-            html_a += seg_a
-            html_b += seg_b
+            html_a += html.escape(seg_a)
+            html_b += html.escape(seg_b)
         else:
             if seg_a:
-                html_a += f'<mark class="diff-mark">{seg_a}</mark>'
+                html_a += f'<mark class="diff-mark">{html.escape(seg_a)}</mark>'
             if seg_b:
-                html_b += f'<mark class="diff-mark">{seg_b}</mark>'
+                html_b += f'<mark class="diff-mark">{html.escape(seg_b)}</mark>'
 
     return html_a, html_b
 
@@ -35,7 +40,7 @@ def split_fingerprint_parts(fp):
         return None
     
 def process_prop_value(key, val_a, val_b):
-    changed = val_a != val_b and val_a != '---' and val_b != '---'
+    changed = is_changed(val_a, val_b)
 
     if not changed:
         return val_a, val_b
@@ -64,8 +69,8 @@ def process_prop_value(key, val_a, val_b):
             suffix = pa[2]
 
             return (
-                f"{base}/<mark class='diff-mark'>{inc_a}</mark>{suffix}",
-                f"{base}/<mark class='diff-mark'>{inc_b}</mark>{suffix}"
+                f"{html.escape(base)}/<mark class='diff-mark'>{html.escape(inc_a)}</mark>{html.escape(suffix)}",
+                f"{html.escape(base)}/<mark class='diff-mark'>{html.escape(inc_b)}</mark>{html.escape(suffix)}"
             )
 
         return highlight_diff(val_a, val_b)
@@ -75,7 +80,7 @@ def process_prop_value(key, val_a, val_b):
 def calcular_diff_props(props):
     return sum(
         1 for p in props
-        if p['a'] != p['b'] and p['a'] != "---" and p['b'] != "---"
+        if is_changed(p['a'], p['b'])
     )
     
 def is_changed(a, b):

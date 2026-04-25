@@ -1,3 +1,5 @@
+import presets
+
 from adb import (
     get_device_id,
     is_device_connected,
@@ -6,11 +8,11 @@ from adb import (
 )
 
 from diff_engine import is_changed, process_prop_value, calcular_diff_props
+from report import gerar_html_report
 
 import os
 import threading
 import pywinstyles
-import base64
 from PIL import Image
 
 from tkinter import messagebox
@@ -27,16 +29,6 @@ except:
 
 import customtkinter as ctk
 from utils import resource_path, filtrar_props
-
-def img_to_base64(path):
-    with open(path, "rb") as f:
-        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
-
-import json
-from pathlib import Path
-from datetime import datetime
-
-PRESETS_DIR = Path.home() / "AndroidSWDiff" / "presets"
 
 class App(ctk.CTk):
 
@@ -173,6 +165,8 @@ class App(ctk.CTk):
         self.pkgs_b  = ""
         self.feats_a = ""
         self.feats_b = ""
+        self.apk_info_a = {}
+        self.apk_info_b = {}
 
         self.report_window = None
 
@@ -445,6 +439,7 @@ class App(ctk.CTk):
             self.props_a    = props
             self.pkgs_a     = pkgs
             self.feats_a    = feats
+            self.apk_info_a = presets.extrair_info_apk(pkgs)
             self.build_a_id = display_id
             self.serial_a   = get_serial() or ""
 
@@ -467,6 +462,7 @@ class App(ctk.CTk):
             self.props_b    = props
             self.pkgs_b     = pkgs
             self.feats_b    = feats
+            self.apk_info_b = presets.extrair_info_apk(pkgs)
             self.build_b_id = display_id
 
             self.btn_b.configure(
@@ -494,13 +490,15 @@ class App(ctk.CTk):
         feat_b = get_set_from_text(self.feats_b) if isinstance(self.feats_b, str) else set()
 
         # suporta tanto dict (preset) quanto string raw (ADB)
-        prop_a = self.props_a if isinstance(self.props_a, dict) else filtrar_props(self.props_a)
-        prop_b = self.props_b if isinstance(self.props_b, dict) else filtrar_props(self.props_b)
+        prop_a = filtrar_props(self.props_a)
+        prop_b = filtrar_props(self.props_b)
 
         data = {
             'pkgs':  {'added': sorted(pkgs_b - pkgs_a), 'removed': sorted(pkgs_a - pkgs_b)},
             'feats': {'added': sorted(feat_b - feat_a), 'removed': sorted(feat_a - feat_b)},
-            'props': {}
+            'props': {},
+            'apk_info_a': self.apk_info_a,
+            'apk_info_b': self.apk_info_b
         }
 
         for categoria, keys in self.IMPORTANT_PROPS.items():
@@ -511,7 +509,12 @@ class App(ctk.CTk):
                 data['props'][categoria].append({'key': k, 'a': va, 'b': vb})
 
         # 🔥 novo fluxo direto
-        self.gerar_html_report(data)
+        gerar_html_report(
+            data,
+            self.build_a_id,
+            self.build_b_id,
+            self.log
+        )
 
     def resetar(self):
         self.log("Estado resetado.", "aviso")
@@ -560,198 +563,6 @@ class App(ctk.CTk):
         y = 0
 
         self.geometry(f"{largura}x{altura}+{x}+{y}")
-
-    def gerar_html_report(self, data):
-        import tempfile
-        import webbrowser
-
-        # ================= PROPERTIES =================
-        props_html = ""
-        total_props_diff = 0
-
-        # DEPOIS — feature 3: ordena (com mudança primeiro), feature 2: oculta sem diff, feature 8: qtde no status
-        props_items = list(data['props'].items())
-        # Feature 3: grupos com mudança sobem
-        props_items.sort(key=lambda item: calcular_diff_props(item[1]) == 0)
-
-        for categoria, props in props_items:
-            if not props:
-                continue
-
-            n_diff = calcular_diff_props(props)
-            total_props_diff += n_diff
-
-            # Feature 8: mostra qtde no badge
-            if n_diff == 0:
-                status_html = '<span class="status ok">✓ Idêntico</span>'
-                # Feature 2: sem mudança → oculto por padrão
-                body_class = 'block-body collapsed'
-                arrow = '▶'
-            else:
-                status_html = f'<span class="status bad">⚠ {n_diff} mudança{"s" if n_diff > 1 else ""}</span>'
-                # Feature 2: com mudança → expandido por padrão
-                body_class = 'block-body'
-                arrow = '▼'
-
-            rows = ""
-            for p in props:
-                # Feature 1: destaca linha amarela se valor mudou
-                changed = is_changed(p['a'], p['b'])
-                row_class = ' class="row-changed"' if changed else ''
-
-                status_icon = "✔" if not changed else "✖"
-                status_class = "status-ok" if not changed else "status-bad"
-                
-                # valor padrão (sem highlight)
-                val_a_html, val_b_html = process_prop_value(
-                    p['key'],
-                    p['a'],
-                    p['b']
-                )
-
-                rows += f"""
-                <tr>
-                    <td class="status-cell {status_class}">{status_icon}</td>
-                    <td><span class="prop-key">{p['key']}</span></td>
-                    <td class="col-a"><div class="value-box">{val_a_html}</div></td>
-                    <td class="col-b"><div class="value-box">{val_b_html}</div></td>
-                </tr>
-                """
-
-            props_html += f"""
-            <div class="block">
-                <div class="block-header" onclick="toggleBlock(this)">
-                    <div class="block-header-left">
-                        <h3>{categoria} <span class="collapse-arrow">{arrow}</span></h3>
-                    </div>
-                    <div class="block-header-right">
-                        {status_html}
-                    </div>
-                </div>
-                <div class="{body_class}">
-                    <table>
-                        <thead><tr>
-                            <th class="status-head" style="font-weight:800;">Status</th>
-                            <th style="font-weight:800;">Property</th>
-                            <th class="col-a-head">{self.build_a_id}</th>
-                            <th class="col-b-head">{self.build_b_id}</th>
-                        </tr></thead>
-                        <tbody>{rows}</tbody>
-                    </table>
-                </div>
-            </div>
-            """
-
-        # ================= PACKAGES / FEATURES =================
-        pkgs_added   = data['pkgs']['added']
-        pkgs_removed = data['pkgs']['removed']
-        feats_added  = data['feats']['added']
-        feats_removed = data['feats']['removed']
-
-        def build_dual_list(left, right, label_left, label_right):
-            max_len = max(len(left), len(right), 1)
-            rows = ""
-            for i in range(max_len):
-                l = left[i]  if i < len(left)  else ""
-                r = right[i] if i < len(right) else ""
-                rows += f"<tr><td>{l}</td><td>{r}</td></tr>"
-            return f"""
-            <table>
-            <tr>
-                <th>{label_left}</th>
-                <th>{label_right}</th>
-            </tr>
-            {rows}
-            </table>
-            """
-
-        pkgs_table = build_dual_list(
-            pkgs_removed,
-            pkgs_added,
-            f"Build A  —  {self.build_a_id}",
-            f"Build B  —  {self.build_b_id}"
-        )
-
-        feats_table = build_dual_list(
-            [f"- {x}" for x in feats_removed],
-            [f"+ {x}" for x in feats_added],
-            f"Build A  —  {self.build_a_id}",
-            f"Build B  —  {self.build_b_id}"
-        )
-
-        # ================= TEMPLATE =================
-        template_path = resource_path("assets/templates/report_template.html")
-
-        with open(template_path, "r", encoding="utf-8") as f:
-            template = f.read()
-
-        logo_path = img_to_base64(resource_path("assets/logo_positivo.png"))
-        logo_android_path = img_to_base64(resource_path("assets/logo_android.png"))
-
-        from datetime import datetime
-
-        html = template
-        html = html.replace("{{LOGO_PATH}}",         logo_path.replace("\\", "/"))
-        html = html.replace("{{LOGO_ANDROID_PATH}}", logo_android_path.replace("\\", "/"))
-
-        html = html.replace("{{BUILD_A}}", self.build_a_id)
-        html = html.replace("{{BUILD_B}}", self.build_b_id)
-        html = html.replace("{{DATE}}",    datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-
-        html = html.replace("{{TOTAL_PROPS}}", str(total_props_diff))
-        html = html.replace("{{PROPS_HTML}}",  props_html)
-
-        html = html.replace("{{TOTAL_PKGS}}", str(len(pkgs_added) + len(pkgs_removed)))
-        html = html.replace("{{PKGS_TABLE}}", pkgs_table)
-
-        html = html.replace("{{TOTAL_FEATS}}", str(len(feats_added) + len(feats_removed)))
-        html = html.replace("{{FEATS_TABLE}}", feats_table)
-
-        # ================= OUTPUT =================
-        path = tempfile.NamedTemporaryFile(delete=False, suffix=".html").name
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(html)
-
-        webbrowser.open(path)
-        self.log("Relatório gerado com sucesso!", "destaque")
-        
-    def salvar_preset(self, nome: str, props: dict, build_id: str):
-        """Salva as props filtradas de um build como preset nomeado."""
-        PRESETS_DIR.mkdir(parents=True, exist_ok=True)
-        
-        # sanitiza nome pro filesystem
-        safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in nome).strip()
-        filename = PRESETS_DIR / f"{safe_name}.json"
-        
-        payload = {
-            "nome":     nome,
-            "build_id": build_id,
-            "data":     datetime.now().isoformat(),
-            "props":    props   # dict {chave: valor} já filtrado
-        }
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        return filename
-
-    def listar_presets(self) -> list[dict]:
-        """Retorna lista de presets salvos ordenados por data."""
-        if not PRESETS_DIR.exists():
-            return []
-        presets = []
-        for f in PRESETS_DIR.glob("*.json"):
-            try:
-                with open(f, encoding="utf-8") as fp:
-                    data = json.load(fp)
-                    data["_file"] = str(f)
-                    presets.append(data)
-            except Exception:
-                continue
-        return sorted(presets, key=lambda x: x.get("data", ""), reverse=True)
-
-    def carregar_preset(self, filepath: str) -> dict:
-        with open(filepath, encoding="utf-8") as f:
-            return json.load(f)
         
     def _pedir_nome_preset(self, versao, props_raw, build_id):
         """Abre um dialog simples para nomear e salvar o preset."""
@@ -762,11 +573,20 @@ class App(ctk.CTk):
         nome = dialog.get_input()
         if nome and nome.strip():
             props_filtradas = filtrar_props(props_raw)
-            path = self.salvar_preset(nome.strip(), props_filtradas, build_id)
+            apk_info = presets.extrair_info_apk(self.pkgs_a if versao == 1 else self.pkgs_b)
+
+            path = presets.salvar(
+                nome.strip(),
+                props_filtradas,
+                build_id,
+                packages=self.pkgs_a if versao == 1 else self.pkgs_b,
+                features=self.feats_a if versao == 1 else self.feats_b,
+                apk_info=apk_info
+            )
             messagebox.showinfo("Preset salvo", f"Salvo em:\n{path}")
 
     def _carregar_preset_como(self, versao):
-        presets = self.listar_presets()
+        lista_presets = presets.listar()
 
         win = ctk.CTkToplevel(self)
         win.title("Presets")
@@ -786,7 +606,19 @@ class App(ctk.CTk):
                 nome = dialog.get_input()
                 if nome and nome.strip():
                     props_f = props_atual if isinstance(props_atual, dict) else filtrar_props(props_atual)
-                    path = self.salvar_preset(nome.strip(), props_f, build_atual)
+                    apk_info = presets.extrair_info_apk(
+                        self.pkgs_a if versao == 1 else self.pkgs_b
+                    )
+
+                    path = presets.salvar(
+                        nome.strip(),
+                        props_f,
+                        build_atual,
+                        packages=self.pkgs_a if versao == 1 else self.pkgs_b,
+                        features=self.feats_a if versao == 1 else self.feats_b,
+                        apk_info=apk_info
+                    )
+                    
                     messagebox.showinfo("Salvo!", f"Preset salvo em:\n{path}")
                     win.destroy()
                     # reabre pra mostrar o novo preset na lista
@@ -813,7 +645,7 @@ class App(ctk.CTk):
             ).pack(pady=(16, 6))
 
         # ── lista de presets ─────────────────────────────────────────
-        if not presets:
+        if not lista_presets:
             ctk.CTkLabel(win, text="Nenhum preset salvo ainda.",
                         text_color="gray").pack(pady=20)
         else:
@@ -824,7 +656,7 @@ class App(ctk.CTk):
                 win.destroy()
                 self._aplicar_preset(versao, preset)
 
-            for p in presets:
+            for p in lista_presets:
                 data_fmt = p.get("data", "")[:16].replace("T", " ")
 
                 # ── linha por preset ─────────────────────────────────────────
@@ -851,11 +683,40 @@ class App(ctk.CTk):
                     )
                     if confirmar:
                         try:
-                            Path(p["_file"]).unlink()
+                            presets.deletar(p["_file"])
                         except Exception as e:
                             messagebox.showerror("Erro", f"Não foi possível excluir:\n{e}")
                             return
                         r.destroy()  # remove a linha da UI sem fechar a janela
+                
+                # ✏ EDITAR
+                def _editar(p=p):
+                    dialog = ctk.CTkInputDialog(
+                        text="Novo nome do preset:",
+                        title="Renomear Preset"
+                    )
+                    novo_nome = dialog.get_input()
+
+                    if novo_nome and novo_nome.strip():
+                        try:
+                            presets.renomear(p["_file"], novo_nome.strip())
+                            messagebox.showinfo("Sucesso", "Preset renomeado!")
+                            win.destroy()
+                            self.after(100, lambda: self._carregar_preset_como(versao))
+                        except Exception as e:
+                            messagebox.showerror("Erro", str(e))
+
+
+                ctk.CTkButton(
+                    row,
+                    text="✏",
+                    command=_editar,
+                    width=40,
+                    height=52,
+                    fg_color="#1a3a5a",
+                    hover_color="#205080",
+                    font=("Segoe UI", 16)
+                ).pack(side="left")
 
                 ctk.CTkButton(
                     row,
@@ -869,9 +730,14 @@ class App(ctk.CTk):
                 ).pack(side="left")
 
         ctk.CTkButton(
-            win, text="📁 Abrir pasta de presets",
-            command=lambda: (PRESETS_DIR.mkdir(parents=True, exist_ok=True), os.startfile(str(PRESETS_DIR))),
-            fg_color="#444", height=32
+            win,
+            text="📁 Abrir pasta de presets",
+            command=lambda: (
+                presets.PRESETS_DIR.mkdir(parents=True, exist_ok=True),
+                os.startfile(str(presets.PRESETS_DIR))
+            ),
+            fg_color="#444",
+            height=32
         ).pack(pady=8)
         
     def _aplicar_preset(self, versao, preset):
@@ -883,8 +749,9 @@ class App(ctk.CTk):
 
         if versao == 1:
             self.props_a    = props_dict   # agora é dict direto
-            self.pkgs_a     = ""
-            self.feats_a    = ""
+            self.pkgs_a = preset.get("packages", "")
+            self.feats_a = preset.get("features", "")
+            self.apk_info_a = preset.get("apk_info", {})
             self.build_a_id = build_id
             self.serial_a   = ""
             self.btn_a.configure(state="disabled", text=f"[PRESET] {build_id}", fg_color="#333333")
@@ -897,8 +764,9 @@ class App(ctk.CTk):
             messagebox.showinfo("Preset carregado", f"Build A: {build_id}")
         else:
             self.props_b    = props_dict
-            self.pkgs_b     = ""
-            self.feats_b    = ""
+            self.pkgs_b = preset.get("packages", "")
+            self.feats_b = preset.get("features", "")
+            self.apk_info_b = preset.get("apk_info", {})
             self.build_b_id = build_id
             self.btn_b.configure(state="disabled", text=f"[PRESET] {build_id}", fg_color="#333333")
             self.btn_diff.configure(state="normal")
