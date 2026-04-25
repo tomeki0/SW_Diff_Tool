@@ -612,17 +612,39 @@ class App(ctk.CTk):
 
                 status_icon = "✔" if not changed else "✖"
                 status_class = "status-ok" if not changed else "status-bad"
+                
+                # valor padrão (sem highlight)
+                val_a_html, val_b_html = p['a'], p['b']
 
-                IS_FINGERPRINT = "fingerprint" in p['key'].lower() or "vbmeta" in p['key'].lower()
+                key = p['key'].lower()
 
-                if changed and IS_FINGERPRINT:
-                    if self.is_same_base_fingerprint(p['a'], p['b']):
+                IS_SIMPLE_VERSION = any(k in key for k in [
+                    "ro.build.version.incremental",
+                    "ro.build.display.id",
+                    "ro.build.version.base_os"
+                ])
+
+                IS_FINGERPRINT = "fingerprint" in key
+
+                if changed:
+
+                    if IS_SIMPLE_VERSION:
                         val_a_html, val_b_html = self.highlight_diff(p['a'], p['b'])
-                    else:
-                        # totalmente diferente → não highlighta
-                        val_a_html, val_b_html = p['a'], p['b']
-                else:
-                    val_a_html, val_b_html = p['a'], p['b']
+
+                    elif IS_FINGERPRINT:
+                        pa = self.split_fingerprint_parts(p['a'])
+                        pb = self.split_fingerprint_parts(p['b'])
+
+                        if pa and pb and pa[0] == pb[0]:
+                            base = pa[0]
+                            inc_a = pa[1]
+                            inc_b = pb[1]
+                            suffix = pa[2]
+
+                            val_a_html = f"{base}/<mark class='diff-mark'>{inc_a}</mark>{suffix}"
+                            val_b_html = f"{base}/<mark class='diff-mark'>{inc_b}</mark>{suffix}"
+                        else:
+                            val_a_html, val_b_html = self.highlight_diff(p['a'], p['b'])
 
                 rows += f"""
                 <tr>
@@ -952,3 +974,17 @@ class App(ctk.CTk):
                 text="PRONTO: Clique no botão verde para ver o diff",
                 text_color="#00C853"
             )
+            
+    def split_fingerprint_parts(self, fp):
+        try:
+            parts = fp.split("/")
+            if len(parts) < 5:
+                return None
+
+            base = "/".join(parts[:4])   # até antes do incremental
+            incremental = parts[4].split(":")[0]
+            suffix = fp.split(incremental)[-1]
+
+            return base, incremental, suffix
+        except:
+            return None
