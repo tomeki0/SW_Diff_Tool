@@ -1,10 +1,11 @@
 from adb import (
-    rodar_adb,
     get_device_id,
     is_device_connected,
     get_serial,
     coletar_dados
 )
+
+from diff_engine import is_changed, process_prop_value, calcular_diff_props
 
 import os
 import threading
@@ -564,12 +565,6 @@ class App(ctk.CTk):
         import tempfile
         import webbrowser
 
-        def calcular_diff_props(props):
-            return sum(
-                1 for p in props
-                if p['a'] != p['b'] and p['a'] != "---" and p['b'] != "---"
-            )
-
         # ================= PROPERTIES =================
         props_html = ""
         total_props_diff = 0
@@ -601,44 +596,18 @@ class App(ctk.CTk):
             rows = ""
             for p in props:
                 # Feature 1: destaca linha amarela se valor mudou
-                changed = p['a'] != p['b'] and p['a'] != '---' and p['b'] != '---'
+                changed = is_changed(p['a'], p['b'])
                 row_class = ' class="row-changed"' if changed else ''
 
                 status_icon = "✔" if not changed else "✖"
                 status_class = "status-ok" if not changed else "status-bad"
                 
                 # valor padrão (sem highlight)
-                val_a_html, val_b_html = p['a'], p['b']
-
-                key = p['key'].lower()
-
-                IS_SIMPLE_VERSION = any(k in key for k in [
-                    "ro.build.version.incremental",
-                    "ro.build.display.id",
-                    "ro.build.version.base_os"
-                ])
-
-                IS_FINGERPRINT = "fingerprint" in key
-
-                if changed:
-
-                    if IS_SIMPLE_VERSION:
-                        val_a_html, val_b_html = self.highlight_diff(p['a'], p['b'])
-
-                    elif IS_FINGERPRINT:
-                        pa = self.split_fingerprint_parts(p['a'])
-                        pb = self.split_fingerprint_parts(p['b'])
-
-                        if pa and pb and pa[0] == pb[0]:
-                            base = pa[0]
-                            inc_a = pa[1]
-                            inc_b = pb[1]
-                            suffix = pa[2]
-
-                            val_a_html = f"{base}/<mark class='diff-mark'>{inc_a}</mark>{suffix}"
-                            val_b_html = f"{base}/<mark class='diff-mark'>{inc_b}</mark>{suffix}"
-                        else:
-                            val_a_html, val_b_html = self.highlight_diff(p['a'], p['b'])
+                val_a_html, val_b_html = process_prop_value(
+                    p['key'],
+                    p['a'],
+                    p['b']
+                )
 
                 rows += f"""
                 <tr>
@@ -746,37 +715,6 @@ class App(ctk.CTk):
 
         webbrowser.open(path)
         self.log("Relatório gerado com sucesso!", "destaque")
-
-    def highlight_diff(self, a, b):
-        """Retorna (html_a, html_b) com partes diferentes em amarelo."""
-        import difflib
-        matcher = difflib.SequenceMatcher(None, a, b)
-        html_a, html_b = "", ""
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            seg_a = a[i1:i2]
-            seg_b = b[j1:j2]
-            if tag == 'equal':
-                html_a += seg_a
-                html_b += seg_b
-            else:
-                if seg_a:
-                    html_a += f'<mark class="diff-mark">{seg_a}</mark>'
-                if seg_b:
-                    html_b += f'<mark class="diff-mark">{seg_b}</mark>'
-        return html_a, html_b
-    
-    def is_same_base_fingerprint(self, a, b):
-        try:
-            pa = a.split("/")
-            pb = b.split("/")
-
-            if len(pa) < 3 or len(pb) < 3:
-                return False
-
-            return pa[0:3] == pb[0:3]
-
-        except:
-            return False
         
     def salvar_preset(self, nome: str, props: dict, build_id: str):
         """Salva as props filtradas de um build como preset nomeado."""
@@ -968,17 +906,3 @@ class App(ctk.CTk):
                 text="PRONTO: Clique no botão verde para ver o diff",
                 text_color="#00C853"
             )
-            
-    def split_fingerprint_parts(self, fp):
-        try:
-            parts = fp.split("/")
-            if len(parts) < 5:
-                return None
-
-            base = "/".join(parts[:4])   # até antes do incremental
-            incremental = parts[4].split(":")[0]
-            suffix = fp.split(incremental)[-1]
-
-            return base, incremental, suffix
-        except:
-            return None
