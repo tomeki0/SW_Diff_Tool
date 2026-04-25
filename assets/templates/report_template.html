@@ -47,6 +47,10 @@
     transition: background-color 0.15s ease;
   }
 
+  .light .row-changed {
+    background: rgba(250, 204, 21, 0.25);
+  }
+
   .row-changed:hover {
       background-color: rgba(255, 193, 7, 0.12);
   }
@@ -59,9 +63,9 @@
   .light {
   --bg:        #f5f7fb;
   --surface:   #ffffff;
-  --surface2:  #f0f2f8;
-  --surface3:  #e6e9f3;
-  --border:    #d6daea;
+  --surface2:  #f8fafc;
+  --surface3:  #f1f5f9;
+  --border:    #e5e7eb;
 
   --text:      #111827;
   --text2:     #4b5563;
@@ -609,17 +613,22 @@
 
   .status-cell {
     text-align: center;
-    font-size: 26px;
+    font-size: 20px;
     width: 32px;    /* era 60px */
     padding: 5px 4px;
   }
 
   .status-ok {
-    color: #22c55e; /* verde */
+    color: #16a34a; /* verde */
   }
 
   .status-bad {
-    color: #ef4444; /* vermelho */
+    color: #dc2626; /* vermelho */
+  }
+
+  .row-changed .status-cell {
+    font-weight: 900;
+    transform: scale(1.1);
   }
 
   mark.diff-mark {
@@ -754,9 +763,7 @@
       <span class="label">pacote(s) diferente(s)</span>
     </div>
 
-    <div class="apk-alerts">
       {{APK_ALERTS}}
-    </div>
 
     <div class="list-wrap">{{PKGS_TABLE}}</div>
   </div>
