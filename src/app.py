@@ -164,6 +164,7 @@ class App(ctk.CTk):
         self.build_a_id           = ""
         self.build_b_id           = ""
         self.serial_a             = ""
+        self.serial_b             = ""
 
         self.props_a = ""
         self.props_b = ""
@@ -350,6 +351,17 @@ class App(ctk.CTk):
         self.status_box.insert("end", linha, tag)
         self.status_box.tag_config(tag, foreground=cor)
         self.status_box.see("end")
+        
+    def log_section(self, titulo):
+        self.status_box.insert("end", "\n")
+        self.status_box.insert("end", f"==== {titulo} ====\n", "tag_destaque")
+        self.status_box.insert("end", "\n")
+
+    def log_divider(self):
+        self.status_box.insert("end", "-----------------------------\n", "tag_info")
+
+    def log_space(self):
+        self.status_box.insert("end", "\n")
 
     def check_adb_loop(self):
         current_state = is_device_connected()
@@ -361,13 +373,18 @@ class App(ctk.CTk):
                 self.status_text.configure(
                     text=f"Conectado: {id_build or 'Unknown'}"
                 )
-                self.log(f"Dispositivo conectado: {id_build.strip() if id_build else 'Unknown'}", "device")
+                self.log_section("ADB")
+                self.log(f"Device conectado: {id_build}", "device")
+                self.log_space()
+                self.log("Clique em COLETAR BUILD A", "info")
                 self.device_detected_once = True
         else:
             if self.device_detected_once:
                 self.status_dot.configure(text_color=self.COLOR_DISCONNECTED)
                 self.status_text.configure(text="Desconectado")
-                self.log("Dispositivo desconectado.", "aviso")
+                self.log_space()
+                self.log("Dispositivo desconectado", "aviso")
+                self.log_space()
                 self.device_detected_once = False
 
         self.after(2000, self.check_adb_loop)
@@ -379,7 +396,8 @@ class App(ctk.CTk):
         self.coletando = True
         self.btn_a.configure(state="disabled")
         self.btn_b.configure(state="disabled")
-        self.log(f"Iniciando coleta da Build {versao}...", "info")
+        self.log_section(f"BUILD {versao}")
+        self.log("Coletando dados...", "info")
 
         def _coleta_worker():
             display_id = (get_device_id() or "").strip()
@@ -439,7 +457,9 @@ class App(ctk.CTk):
             self.btn_b.configure(state="normal")
 
     def _aplicar_coleta(self, versao, display_id, props, pkgs, feats):
-        self.log(f"Build {versao} coletada com sucesso: {display_id}", "ok")
+        self.log("Coleta finalizada", "ok")
+        self.log(f"Build: {display_id}", "destaque")
+        self.log_divider()
 
         if versao == 1:
             self.props_a    = props
@@ -470,6 +490,7 @@ class App(ctk.CTk):
             self.feats_b    = feats
             self.apk_info_b = presets.extrair_info_apk(pkgs)
             self.build_b_id = display_id
+            self.serial_b   = get_serial() or ""
 
             self.btn_b.configure(
                 state="disabled",
@@ -483,7 +504,7 @@ class App(ctk.CTk):
             )
 
         self.coletando = False
-        print("LEN PKGS A:", len(self.pkgs_a.splitlines()))
+        #print("LEN PKGS A:", len(self.pkgs_a.splitlines()))
         
 
     def gerar_diff(self):
@@ -544,7 +565,9 @@ class App(ctk.CTk):
             data,
             self.build_a_id,
             self.build_b_id,
-            self.log
+            self.log,
+            serial_a=self.serial_a,
+            serial_b=self.serial_b
         )
 
     def resetar(self):

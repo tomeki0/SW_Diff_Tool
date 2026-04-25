@@ -62,7 +62,7 @@ def comparar_apks(apk_a: dict, apk_b: dict) -> list[str]:
     return alertas
 
 
-def gerar_html_report(data, build_a_id, build_b_id, log_callback):
+def gerar_html_report(data, build_a_id, build_b_id, log_callback, serial_a="", serial_b=""):
 
     # 🔥 ALERTAS APK
     apk_alertas = comparar_apks(
@@ -376,6 +376,10 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback):
 
     html_content = html_content.replace("{{BUILD_A}}", build_a_id)
     html_content = html_content.replace("{{BUILD_B}}", build_b_id)
+    
+    html_content = html_content.replace("{{SN_A}}", serial_a or "—")
+    html_content = html_content.replace("{{SN_B}}", serial_b or "—")
+    
     html_content = html_content.replace("{{DATE}}", datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
     html_content = html_content.replace("{{TOTAL_PROPS}}", str(total_props_diff))

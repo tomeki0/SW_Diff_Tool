@@ -34,7 +34,7 @@
     --font:    'Segoe UI', system-ui, sans-serif;          /* fix #5: fonte mais legível */
     --font-mono: 'JetBrains Mono', 'Consolas', monospace;
 
-    --h-header: 58px;   /* fix #11: +10% */
+    --h-header: 70px;   /* fix #11: +10% */
     --h-tabs:   40px;
     --h-block:  38px;
 
@@ -175,7 +175,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 12px;
+    padding: 6px 12px;
     background: var(--surface2);
   }
   .build-pill .seg + .seg,
@@ -195,6 +195,32 @@
   }
   .build-pill .seg.a .val { color: var(--col-a); }
   .build-pill .seg.b .val { color: var(--col-b); }
+
+  .build-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .build-info .lbl {
+    font-size: 9px;
+    font-weight: 800;
+    color: var(--muted);
+  }
+
+  .build-info .val {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .build-info .sn {
+    font-size: 10px;
+    color: var(--muted);
+    opacity: 1;
+    font-family: var(--font-mono);
+    margin-top: 2px;
+  }
   .build-pill .date-seg {
     display: flex;
     align-items: center;
@@ -939,6 +965,8 @@
   .pkg-card.open .pkg-header::before {
     content: "▼";
   }
+
+
 </style>
 </head>
 <body>
@@ -955,8 +983,23 @@
         <span class="subtitle">Software Comparison Tool</span>
       </div>
       <div class="build-pill">
-        <div class="seg a"><span class="lbl">A</span><span class="val">{{BUILD_A}}</span></div>
-        <div class="seg b"><span class="lbl">B</span><span class="val">{{BUILD_B}}</span></div>
+
+        <div class="seg a">
+          <div class="build-info">
+            <span class="lbl">A</span>
+            <span class="val">{{BUILD_A}}</span>
+            <span class="sn">{{SN_A}}</span>
+          </div>
+        </div>
+
+        <div class="seg b">
+          <div class="build-info">
+            <span class="lbl">B</span>
+            <span class="val">{{BUILD_B}}</span>
+            <span class="sn">{{SN_B}}</span>
+          </div>
+        </div>
+
         <div class="date-seg">{{DATE}}</div>
       </div>
     </div>
@@ -1166,14 +1209,18 @@
   }
 
   function togglePkg(el) {
+    console.log("CLICK");
+
+
     const card = el.closest(".pkg-card");
-    const container = el.closest(".pkg-container");
-    const allCards = container.querySelectorAll(".pkg-card");
+    const allCards = document.querySelectorAll(".pkg-card");
 
     const isOpen = card.classList.contains("open");
 
+    // fecha todos
     allCards.forEach(c => c.classList.remove("open"));
 
+    // abre só o clicado
     if (!isOpen) {
         card.classList.add("open");
     }
@@ -1265,13 +1312,6 @@
         counter.innerText = `Resultados: ${totalVisible}`;
     }
   }
-
-  document.querySelectorAll(".pkg-header").forEach(header => {
-    header.addEventListener("click", function(e) {
-        e.stopPropagation();
-        togglePkg(this);
-    });
-  });
 </script>
 </body>
 </html>
