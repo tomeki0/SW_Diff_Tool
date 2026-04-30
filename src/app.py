@@ -165,9 +165,10 @@ class App(ctk.CTk):
         self.build_b_id           = ""
         self.serial_a             = ""
         self.serial_b             = ""
+        
 
-        self.props_a = ""
-        self.props_b = ""
+        self.props_a = {}
+        self.props_b = {}
         self.pkgs_a  = ""
         self.pkgs_b  = ""
         self.feats_a = ""
@@ -176,6 +177,8 @@ class App(ctk.CTk):
         self.apk_info_b = {}
 
         self.report_window = None
+        self.last_report_path = None
+        self.diff_mode = "generate"
 
          # ── corpo principal ───────────────────────────────────────────────
         self.label_title = ctk.CTkLabel(
@@ -505,6 +508,7 @@ class App(ctk.CTk):
 
         self.coletando = False
         #print("LEN PKGS A:", len(self.pkgs_a.splitlines()))
+        self._invalidate_report()
         
 
     def gerar_diff(self):
@@ -561,7 +565,7 @@ class App(ctk.CTk):
                 data['props'][categoria].append({'key': k, 'a': va, 'b': vb})
 
         # 🔥 novo fluxo direto
-        gerar_html_report(
+        path = gerar_html_report(
             data,
             self.build_a_id,
             self.build_b_id,
@@ -569,6 +573,10 @@ class App(ctk.CTk):
             serial_a=self.serial_a,
             serial_b=self.serial_b
         )
+
+        self.last_report_path = path
+        self.diff_mode = "reopen"
+        self._update_diff_button()
 
     def resetar(self):
         self.log("Estado resetado.", "aviso")
@@ -606,6 +614,7 @@ class App(ctk.CTk):
             text="INSTRUÇÃO: Conecte o primeiro dispositivo",
             text_color=("#1A1A1A", "#FFCC00")
         )
+        self._invalidate_report()
 
     def centralizar(self):
         largura = self.largura_janela
@@ -828,3 +837,31 @@ class App(ctk.CTk):
                 text="PRONTO: Clique no botão verde para ver o diff",
                 text_color="#00C853"
             )
+            
+    def reopen_last_report(self):
+        import webbrowser
+
+        if self.last_report_path and os.path.exists(self.last_report_path):
+            webbrowser.open(self.last_report_path)
+            self.log("Reabrindo último relatório...", "info")
+        else:
+            self.log("Nenhum relatório disponível.", "aviso")
+            
+    def _update_diff_button(self):
+        if self.diff_mode == "generate":
+            self.btn_diff.configure(
+                text="GERAR DIFERENÇA GERAL",
+                command=self.gerar_diff,
+                fg_color="#2E7D32"
+            )
+        else:
+            self.btn_diff.configure(
+                text="REABRIR RELATÓRIO",
+                command=self.reopen_last_report,
+                fg_color="#444444"
+            )
+            
+    def _invalidate_report(self):
+        self.last_report_path = None
+        self.diff_mode = "generate"
+        self._update_diff_button()

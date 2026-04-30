@@ -416,3 +416,7 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback, serial_a="", s
 
     webbrowser.open(path)
     log_callback("Relatório gerado com sucesso!", "destaque")
+    
+    return path
+    
+    
