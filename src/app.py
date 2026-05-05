@@ -34,7 +34,7 @@ except:
         pass
 
 import customtkinter as ctk
-from utils import resource_path, filtrar_props
+from utils import resource_path, filtrar_props, Tooltip
 
 class App(ctk.CTk):
 
@@ -214,6 +214,7 @@ class App(ctk.CTk):
             font=("Segoe UI", 18)
         )
         self.btn_preset_a.pack(side="left")
+        Tooltip(self.btn_preset_a, "Presets")
 
         # ── BUILD B ──────────────────────────────────────────────────────
         row_b = ctk.CTkFrame(self, fg_color="transparent")
@@ -235,6 +236,7 @@ class App(ctk.CTk):
             state="disabled"
         )
         self.btn_preset_b.pack(side="left")
+        Tooltip(self.btn_preset_b, "Presets")
 
         self.btn_diff = ctk.CTkButton(
             self, text="GERAR DIFERENÇA GERAL", command=self.gerar_diff,
@@ -272,6 +274,8 @@ class App(ctk.CTk):
         self.geometry(f"{self.largura_janela}x{self.altura_janela}")
         self.after(10, self.centralizar)
 
+
+ 
     # ✅ ALTERAÇÃO #2: troca tema sem fechar janelas nem crashar
     def _toggle_tema(self):
         if self._tema_atual == "Dark":
@@ -728,8 +732,8 @@ class App(ctk.CTk):
 
                 btn = ctk.CTkButton(
                     row,
-                    text=f"  {p['nome']}\n  {p['build_id']}  •  {data_fmt}",
-                    anchor="w",
+                    text=f"{p['nome']}\n{p['build_id']}  •  {data_fmt}",
+                    anchor="center",
                     command=lambda p=p: selecionar(p),
                     fg_color="transparent",
                     border_width=1,
@@ -770,7 +774,7 @@ class App(ctk.CTk):
                             messagebox.showerror("Erro", str(e))
 
 
-                ctk.CTkButton(
+                btn_edit = ctk.CTkButton(
                     row,
                     text="✏",
                     command=_editar,
@@ -779,9 +783,11 @@ class App(ctk.CTk):
                     fg_color="#1a3a5a",
                     hover_color="#205080",
                     font=("Segoe UI", 16)
-                ).pack(side="left")
+                )
+                btn_edit.pack(side="left", padx=(4, 2))
+                Tooltip(btn_edit, "Editar preset")
 
-                ctk.CTkButton(
+                btn_delete = ctk.CTkButton(
                     row,
                     text="🗑",
                     command=_excluir,
@@ -790,7 +796,9 @@ class App(ctk.CTk):
                     fg_color="#5a1a1a",
                     hover_color="#7f2020",
                     font=("Segoe UI", 16)
-                ).pack(side="left")
+                )
+                btn_delete.pack(side="left", padx=(2, 0))
+                Tooltip(btn_delete, "Excluir preset")
 
         ctk.CTkButton(
             win,
