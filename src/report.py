@@ -224,66 +224,13 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback, serial_a="", s
     # print("TOTAL:", len(pkgs_path_a))
     # ==========================================================
         
-    def build_dual_list(left, right, label_left, label_right):
-        max_len = max(len(left), len(right), 1)
-        rows = ""
-        for i in range(max_len):
-            l = left[i] if i < len(left) else ""
-            r = right[i] if i < len(right) else ""
-            rows += f"<tr><td>{html.escape(l)}</td><td>{html.escape(r)}</td></tr>"
-        return f"""
-        <table>
-        <tr>
-            <th>{label_left}</th>
-            <th>{label_right}</th>
-        </tr>
-        {rows}
-        </table>
-        """
-    
-    def build_pkg_diff_table(diff, build_a, build_b):
-        rows = ""
+    def render_feature_items(items):
+        html = ""
 
-        for item in diff:
-            pkg = item["pkg"]
-            a = item["a"]
-            b = item["b"]
-            t = item["type"]
+        for item in sorted(items):
+            html += f'<div class="pkg-item">{html_escape(item)}</div>'
 
-            if t == "added":
-                status = "➕"
-                cls = "row-added"
-            elif t == "removed":
-                status = "➖"
-                cls = "row-removed"
-            else:
-                status = "⚠"
-                cls = "row-changed"
-
-            rows += f"""
-            <tr class="{cls}">
-                <td class="status-cell">{status}</td>
-                <td class="prop-key">{html.escape(pkg)}</td>
-                <td class="col-a"><div class="value-box">{html.escape(a)}</div></td>
-                <td class="col-b"><div class="value-box">{html.escape(b)}</div></td>
-            </tr>
-            """
-
-        return f"""
-        <table>
-            <thead>
-                <tr>
-                    <th>Status</th>
-                    <th>Package</th>
-                    <th>{build_a}</th>
-                    <th>{build_b}</th>
-                </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>
-        """
-        
-    pkgs_table = build_pkg_diff_table(pkgs_diff, build_a_id, build_b_id)
+        return html
     
     # ================= NOVA UI PACKAGES =================
 
@@ -334,12 +281,67 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback, serial_a="", s
     </div>
     """
 
-    feats_table = build_dual_list(
-        [f"- {x}" for x in feats_removed],
-        [f"+ {x}" for x in feats_added],
-        f"Build A  —  {build_a_id}",
-        f"Build B  —  {build_b_id}"
-    )
+    feats_table = f"""
+    <div class="pkg-root">
+
+        <div class="pkg-toolbar">
+
+            <input
+            type="text"
+            id="featSearch"
+            placeholder="🔍 Buscar feature..."
+            oninput="filterFeatures(this)"
+            class="pkg-search"
+            >
+
+            <div id="featSearchCount">
+            Resultados: {len(feats_added) + len(feats_removed)}
+            </div>
+
+        </div>
+
+        <div class="pkg-container">
+
+            <div class="pkg-card">
+                <div class="pkg-header" onclick="togglePkg(this)">
+                    {build_a_id} — {len(feats_removed)} exclusivas
+                </div>
+
+                <div class="pkg-body">
+                    <div class="pkg-group">
+                        <div class="pkg-group-title">
+                            FEATURES ({len(feats_removed)})
+                        </div>
+
+                        <div class="pkg-list">
+                            {render_feature_items(feats_removed)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pkg-card">
+                <div class="pkg-header" onclick="togglePkg(this)">
+                    {build_b_id} — {len(feats_added)} exclusivas
+                </div>
+
+                <div class="pkg-body">
+                    <div class="pkg-group">
+                        <div class="pkg-group-title">
+                            FEATURES ({len(feats_added)})
+                        </div>
+
+                        <div class="pkg-list">
+                            {render_feature_items(feats_added)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+    """
 
     # ================= TEMPLATE =================
     template_path = resource_path("assets/templates/report_template.html")

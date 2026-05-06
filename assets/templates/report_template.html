@@ -575,93 +575,6 @@
     background: rgba(124,58,237,0.12);
   }
 
-  /* ── PKG / FEAT ──────────────────────────────────────────────── */
-    .list-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    }
-
-    .list-wrap table { 
-      border-collapse: collapse; 
-      table-layout: fixed; 
-    }
-
-    .list-wrap thead tr {
-    background: var(--surface2);
-    border-bottom: 2px solid var(--border);
-    position: static; /* 🔥 ESSENCIAL */
-    }
-
-    .list-wrap thead th {
-    padding: 8px 14px;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .7px;
-    text-align: left;
-    }
-
-    .list-wrap thead th:first-child { color: var(--col-a); }
-    .list-wrap thead th:last-child  { color: var(--col-b); }
-
-    .list-wrap thead th:first-child {
-    border-right: 1px solid var(--border);
-    }
-
-    .list-wrap tbody tr { 
-      border-bottom: 1px solid var(--border); 
-      opacity: .85; 
-    }
-
-    tbody tr:hover {
-    transform: scale(1.01);
-  }
-
-    .list-wrap tbody tr:last-child  { border-bottom: none; }
-
-    .list-wrap tbody tr:hover { 
-      background: var(--surface2); 
-      opacity: 1; 
-      background: rgba(255,255,255,0.04);
-
-    }
-
-    .list-wrap tbody td {
-      padding: 5px 14px;
-      font-family: var(--font);
-      font-size: 14px; 
-      word-break: break-all;
-      color: var(--text2);
-      font-weight: 600;
-    }
-
-    .list-wrap td {
-      width: 50%;
-    }
-
-    .list-wrap tbody td:first-child {
-      border-right: 1px solid var(--border);
-    }
-
-    .list-wrap tbody td:first-child:not(:empty) {
-      background: var(--col-a-dim);
-      color: #fff;              /* dark: branco */
-      font-weight: 700;
-      border-left: 3px solid var(--col-a);
-  }
-
-    .list-wrap tbody td:last-child:not(:empty) {
-      background: var(--col-b-dim);
-      color: #fff;              /* dark: branco */
-      font-weight: 700;
-      border-left: 3px solid var(--col-b);
-  }
-
-  .light .list-wrap tbody td:first-child:not(:empty) { color: #111827; }
-  .light .list-wrap tbody td:last-child:not(:empty)  { color: #111827; }
-
   /* ── FOOTER ──────────────────────────────────────────────────── */
   .footer {
     text-align: center;
@@ -973,11 +886,12 @@
     background: var(--surface3);
   }
 
-  #pkgSearchCount {
-    font-size: 14px;
-    font-weight: 800;
-    color: var(--accent);
-    margin-bottom: 10px;
+  #pkgSearchCount,
+  #featSearchCount {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 10px;
   }
 
   .pkg-header::before {
@@ -1021,6 +935,10 @@
     border-color: #2a6b3c;
     color: #a8f0b8;
     cursor: default;
+  }
+
+  tbody tr:hover {
+    transform: scale(1.01);
   }
 
 </style>
@@ -1222,7 +1140,7 @@
 
         <!-- CONTADOR -->
         <div id="pkgSearchCount">
-          Resultados: 0
+          Resultados: {{TOTAL_PKGS}}
         </div>
 
       </div>
@@ -1242,7 +1160,7 @@
       <span class="summary-count">{{TOTAL_FEATS}}</span>
       <span class="label">feature(s) diferente(s)</span>
     </div>
-    <div class="list-wrap">{{FEATS_TABLE}}</div>
+    {{FEATS_TABLE}}
   </div>
 </section>
 
@@ -1513,6 +1431,97 @@ function togglePkgFilter(changedInput) {
 
     const counter =
         document.getElementById("pkgSearchCount");
+
+    if (counter) {
+        counter.innerText =
+            `Resultados: ${totalVisible}`;
+    }
+  }
+
+  function filterFeatures(input) {
+
+    const query =
+        input.value.toLowerCase().trim();
+
+    let totalVisible = 0;
+
+    document.querySelectorAll(
+        '#feats .pkg-item'
+    ).forEach(item => {
+
+        const text =
+            item.textContent.toLowerCase();
+
+        const visible =
+            query === "" ||
+            text.includes(query);
+
+        item.style.display =
+            visible ? "" : "none";
+
+        if (visible) {
+            totalVisible++;
+        }
+    });
+
+    document.querySelectorAll(
+    '#feats .pkg-group'
+).forEach(group => {
+
+    const title =
+        group.querySelector(".pkg-group-title");
+
+    if (title && !title.dataset.original) {
+        title.dataset.original = title.innerHTML;
+    }
+
+    let visibleCount = 0;
+
+    group.querySelectorAll(".pkg-item")
+        .forEach(item => {
+
+            if (item.style.display !== "none") {
+                visibleCount++;
+            }
+        });
+
+      const hasVisible = visibleCount > 0;
+
+      group.style.display =
+          hasVisible ? "" : "none";
+
+      if (title) {
+
+          const original =
+              title.dataset.original;
+
+          const label =
+              original.replace(/\(\d+\)/, "");
+
+          title.innerHTML =
+              `${label} (${visibleCount})`;
+      }
+  });
+
+    document.querySelectorAll(
+        '#feats .pkg-card'
+    ).forEach(card => {
+
+        const hasVisible =
+            card.querySelector(
+                '.pkg-item:not([style*="display: none"])'
+            );
+
+        card.classList.toggle(
+            "open",
+            query === "" || !!hasVisible
+        );
+    });
+
+    const counter =
+        document.getElementById(
+            "featSearchCount"
+        );
 
     if (counter) {
         counter.innerText =
