@@ -1457,11 +1457,19 @@ function togglePkgFilter(changedInput) {
             const category =
                 group.dataset.category;
 
+            const title =
+                group.querySelector(".pkg-group-title");
+
+            if (title && !title.dataset.original) {
+                title.dataset.original = title.innerHTML;
+            }
+
             const categoryVisible =
                 showAll ||
                 enabled.includes(category);
 
             let groupHasVisible = false;
+            let visibleCount = 0;
 
             group.querySelectorAll(".pkg-item")
                 .forEach(item => {
@@ -1481,13 +1489,26 @@ function togglePkgFilter(changedInput) {
                         visible ? "" : "none";
 
                     if (visible) {
-                        totalVisible++;
-                        groupHasVisible = true;
-                    }
+                      totalVisible++;
+                      visibleCount++;
+                      groupHasVisible = true;
+                  }
                 });
 
             group.style.display =
                 groupHasVisible ? "" : "none";
+
+            if (title) {
+
+              const original =
+                  title.dataset.original;
+
+              const label =
+                  original.replace(/\(\d+\)/, "");
+
+              title.innerHTML =
+                  `${label} (${visibleCount})`;
+            }
         });
 
     const counter =
