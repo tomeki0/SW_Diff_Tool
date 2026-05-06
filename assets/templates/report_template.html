@@ -1216,6 +1216,8 @@
   window.addEventListener("load", () => {
     const btn = document.querySelector(".btn-filter.active");
     if (btn) setFilter(true, btn);
+    document.querySelectorAll(".pkg-card")
+    .forEach(card => card.classList.add("open"));
   });
 
   function toggleFocus(btn) {
@@ -1250,107 +1252,104 @@
   }
 
   function togglePkg(el) {
-    console.log("CLICK");
 
+    const container = el.closest(".pkg-container");
 
-    const card = el.closest(".pkg-card");
-    const allCards = document.querySelectorAll(".pkg-card");
+    if (!container) return;
 
-    const isOpen = card.classList.contains("open");
+    const cards = container.querySelectorAll(".pkg-card");
 
-    // fecha todos
-    allCards.forEach(c => c.classList.remove("open"));
+    const shouldOpen =
+        !cards[0].classList.contains("open");
 
-    // abre só o clicado
-    if (!isOpen) {
-        card.classList.add("open");
-    }
+    cards.forEach(card => {
+        card.classList.toggle("open", shouldOpen);
+    });
   }
 
   function filterPackages(input) {
-    const query = input.value.toLowerCase();
+
+    const query = input.value.toLowerCase().trim();
 
     const cards = document.querySelectorAll(".pkg-card");
 
+    let totalVisible = 0;
+
     cards.forEach(card => {
+
         let cardHasVisible = false;
 
-        card.querySelectorAll(".pkg-group").forEach(group => {
+        const groups = card.querySelectorAll(".pkg-group");
+
+        groups.forEach(group => {
+
             let hasVisible = false;
 
-            group.querySelectorAll(".pkg-item").forEach(el => {
-                const original = el.dataset.original || el.textContent;
+            const items = group.querySelectorAll(".pkg-item");
+
+            items.forEach(el => {
+
+                const original =
+                    el.dataset.original || el.textContent;
 
                 if (!el.dataset.original) {
                     el.dataset.original = original;
                 }
 
-                const text = original.toLowerCase();
+                const text =
+                    original.toLowerCase();
 
-                if (text.includes(query)) {
-                    el.style.display = "";
+                const match =
+                    query === "" || text.includes(query);
+
+                el.style.display = match ? "" : "none";
+
+                if (match) {
                     hasVisible = true;
                     cardHasVisible = true;
-
-                    // 🔥 AUTO EXPAND (SÓ QUANDO TEM BUSCA)
-                    if (query.length > 0) {
-                        if (cardHasVisible) {
-                            card.classList.add("open");
-                            if (header.innerHTML.includes("▶")) {
-                                header.innerHTML = header.innerHTML.replace("▶", "▼");
-                            }
-                        } else {
-                            card.classList.remove("open");
-                            if (header.innerHTML.includes("▼")) {
-                                header.innerHTML = header.innerHTML.replace("▼", "▶");
-                            }
-                        }
-                    }
-
-                } else {
-                    el.style.display = "none";
+                    totalVisible++;
                 }
             });
 
-            // esconde grupo vazio
-            group.style.display = hasVisible ? "" : "none";
+            group.style.display =
+                hasVisible ? "" : "none";
         });
 
-        const header = card.querySelector(".pkg-header");
+        // 🔥 abre ambos quando encontrar resultado
+        const container = card.closest(".pkg-container");
 
-        // 🔥 AUTO EXPAND
-        if (query.length > 0) {
-            if (cardHasVisible) {
-                card.classList.add("open");
-                if (header.innerHTML.includes("▶")) {
-                    header.innerHTML = header.innerHTML.replace("▶", "▼");
-                }
-            } else {
-                card.classList.remove("open");
-                if (header.innerHTML.includes("▼")) {
-                    header.innerHTML = header.innerHTML.replace("▼", "▶");
-                }
+        if (container) {
+
+            const allCards =
+                container.querySelectorAll(".pkg-card");
+
+            allCards.forEach(c => {
+                c.classList.toggle(
+                    "open",
+                    query.length > 0 && cardHasVisible
+                );
+            });
+        }
+
+        if (query.length === 0) {
+
+            const container = card.closest(".pkg-container");
+
+            if (container) {
+
+                container.querySelectorAll(".pkg-card")
+                    .forEach(c => c.classList.add("open"));
             }
         }
+
     });
 
-    // 🔥 RESET QUANDO LIMPA BUSCA
-    if (query.length === 0) {
-        // NÃO mexe nos cards → deixa o toggle manual controlar
-        const counter = document.getElementById("pkgSearchCount");
-        if (counter) {
-            counter.innerText = "Resultados: 0";
-        }
-        return; // 🔥 ESSENCIAL
-    }
-
-    // 🔥 CONTADOR REAL (CORRETO)
-    const totalVisible = document.querySelectorAll(".pkg-item:not([style*='display: none'])").length;
-
-    const counter = document.getElementById("pkgSearchCount");
+    const counter =
+        document.getElementById("pkgSearchCount");
 
     if (counter) {
-        counter.innerText = `Resultados: ${totalVisible}`;
+        counter.innerText =
+            `Resultados: ${totalVisible}`;
     }
   }
 
