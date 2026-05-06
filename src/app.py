@@ -1,7 +1,5 @@
 import sys
-
 import presets
-import history as hist_module
 
 from adb import (
     get_device_id,
@@ -352,19 +350,22 @@ class App(ctk.CTk):
         base_dir = get_base_dir() / "outputs" / "relatorios"
 
         # nome da pasta
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         safe_a = re.sub(r"[^\w\-\.]", "_", self.build_a_id or "A")
         safe_b = re.sub(r"[^\w\-\.]", "_", self.build_b_id or "B")
 
-        folder_name = f"{timestamp}_{safe_a}_vs_{safe_b}"
+        folder_name = f"{safe_a}_vs_{safe_b}_{timestamp}"
         report_dir = base_dir / folder_name
 
         # cria pasta
         report_dir.mkdir(parents=True, exist_ok=True)
 
-        # salva html
-        html_path = report_dir / "report.html"
+        # nome do html igual ao da pasta
+        report_filename = f"{folder_name}.html"
+
+        # caminho final do html
+        html_path = report_dir / report_filename
 
         try:
             shutil.copy2(self.last_report_path, html_path)
@@ -383,7 +384,7 @@ class App(ctk.CTk):
             "props_diff": "unknown",
             "pkgs_diff": "unknown",
             "feats_diff": "unknown",
-            "file": "report.html"
+            "file": report_filename
         }
 
         try:
@@ -404,6 +405,16 @@ class App(ctk.CTk):
             "Salvo!",
             f"Relatório salvo com sucesso em:\n{html_path}"
         )
+        
+        abrir = messagebox.askyesno(
+            "Abrir pasta?",
+            "Deseja abrir a pasta do relatório?"
+        )
+
+        if abrir:
+            os.startfile(str(report_dir))
+
+        return True
 
     # ─────────────────────────────────────────────────────────────────────
     # HISTÓRICO
@@ -412,91 +423,147 @@ class App(ctk.CTk):
     def _abrir_historico(self):
         import webbrowser
 
+        base_dir = get_base_dir() / "outputs" / "relatorios"
+
+        itens = []
+
+        if base_dir.exists():
+            for pasta in sorted(base_dir.iterdir(), reverse=True):
+
+                if not pasta.is_dir():
+                    continue
+
+                summary_file = pasta / "summary.json"
+
+                if not summary_file.exists():
+                    continue
+
+                try:
+                    with open(summary_file, encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    data["_folder"] = pasta
+                    itens.append(data)
+
+                except Exception:
+                    continue
+
         win = ctk.CTkToplevel(self)
         win.title("Histórico de Relatórios")
-        win.geometry("620x480")
+        win.geometry("760x520")
         win.grab_set()
 
         ctk.CTkLabel(
-            win, text="📜 Histórico de Relatórios Salvos",
-            font=("Segoe UI", 14, "bold")
-        ).pack(pady=(16, 8))
-
-        itens = hist_module.listar()
+            win,
+            text="📜 Histórico de Relatórios",
+            font=("Segoe UI", 16, "bold")
+        ).pack(pady=(16, 10))
 
         if not itens:
             ctk.CTkLabel(
                 win,
-                text="Nenhum relatório salvo ainda.\nGere e salve um relatório para ele aparecer aqui.",
+                text="Nenhum relatório salvo ainda.",
                 text_color="gray",
                 font=("Segoe UI", 12)
             ).pack(pady=40)
             return
 
-        frame = ctk.CTkScrollableFrame(win, height=360)
-        frame.pack(fill="both", expand=True, padx=16, pady=4)
+        frame = ctk.CTkScrollableFrame(win)
+        frame.pack(fill="both", expand=True, padx=16, pady=8)
 
-        def _abrir_item(path):
-            if os.path.exists(path):
-                webbrowser.open(path)
+        def abrir_relatorio(entry):
+
+            report_path = entry["_folder"] / entry.get("file", "report.html")
+
+            if report_path.exists():
+                webbrowser.open(str(report_path))
             else:
                 messagebox.showerror(
-                    "Arquivo não encontrado",
-                    f"O arquivo não existe mais:\n{path}"
+                    "Erro",
+                    "report.html não encontrado."
                 )
 
-        def _remover_item(idx, row_widget):
-            if messagebox.askyesno("Remover", "Remover esta entrada do histórico?"):
-                hist_module.deletar(idx)
-                row_widget.destroy()
+        def abrir_pasta(entry):
 
-        for i, entry in enumerate(itens):
-            row = ctk.CTkFrame(frame, fg_color="transparent")
-            row.pack(fill="x", pady=3)
+            pasta = entry["_folder"]
 
-            # info
-            info_text = (
-                f"{entry.get('timestamp', '—')}\n"
-                f"{entry.get('build_a', '?')}  ↔  {entry.get('build_b', '?')}\n"
-                f"SN A: {entry.get('device_a', '—')}   SN B: {entry.get('device_b', '—')}"
+            if pasta.exists():
+                os.startfile(str(pasta))
+
+        def deletar_relatorio(entry, row):
+
+            confirmar = messagebox.askyesno(
+                "Excluir relatório",
+                "Deseja excluir este relatório do histórico?"
             )
 
-            ctk.CTkButton(
+            if not confirmar:
+                return
+
+            try:
+                shutil.rmtree(entry["_folder"])
+                row.destroy()
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Erro ao excluir",
+                    str(e)
+                )
+
+        for entry in itens:
+
+            row = ctk.CTkFrame(frame)
+            row.pack(fill="x", pady=6)
+
+            info_text = (
+                f"{entry.get('build_a', '?')}   ↔   {entry.get('build_b', '?')}\n"
+                f"📅 {entry.get('date', '?')}   ⏰ {entry.get('time', '?')}\n"
+                f"📱 A: {entry.get('serial_a', '—')}\n"
+                f"📱 B: {entry.get('serial_b', '—')}\n"
+                f"📦 Packages: {entry.get('pkgs_diff', 'unknown')}   "
+                f"⚙ Props: {entry.get('props_diff', 'unknown')}   "
+                f"🧩 Features: {entry.get('feats_diff', 'unknown')}"
+            )
+
+            btn_main = ctk.CTkButton(
                 row,
                 text=info_text,
                 anchor="w",
-                command=lambda p=entry.get("report_path", ""): _abrir_item(p),
+                height=96,
                 fg_color="transparent",
                 border_width=1,
                 text_color=("black", "white"),
-                hover_color=("#e0e0e0", "#2a2a2a"),
-                height=58,
-                font=("Consolas", 11)
-            ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+                hover_color=("#eaeaea", "#2a2a2a"),
+                font=("Consolas", 11),
+                command=lambda e=entry: abrir_relatorio(e)
+            )
 
-            btn_del = ctk.CTkButton(
+            btn_main.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+            btn_folder = ctk.CTkButton(
+                row,
+                text="📁",
+                width=42,
+                height=96,
+                fg_color="#1a3a5a",
+                hover_color="#205080",
+                command=lambda e=entry: abrir_pasta(e)
+            )
+            btn_folder.pack(side="left", padx=(0, 4))
+            Tooltip(btn_folder, "Abrir pasta")
+
+            btn_delete = ctk.CTkButton(
                 row,
                 text="🗑",
-                width=42, height=58,
+                width=42,
+                height=96,
                 fg_color="#5a1a1a",
                 hover_color="#7f2020",
-                font=("Segoe UI", 16),
-                command=lambda idx=i, r=row: _remover_item(idx, r)
+                command=lambda e=entry, r=row: deletar_relatorio(e, r)
             )
-            btn_del.pack(side="left")
-            Tooltip(btn_del, "Remover do histórico")
+            btn_delete.pack(side="left")
 
-        ctk.CTkButton(
-            win,
-            text="🗑 Limpar histórico completo",
-            command=lambda: (
-                messagebox.askyesno("Confirmar", "Limpar todo o histórico?") and
-                (hist_module.limpar(), win.destroy(),
-                 self.after(100, self._abrir_historico))
-            ),
-            fg_color="#333",
-            height=32
-        ).pack(pady=8)
+            Tooltip(btn_delete, "Excluir relatório")
 
     # ─────────────────────────────────────────────────────────────────────
     # TEMA
