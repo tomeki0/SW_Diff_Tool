@@ -295,7 +295,8 @@
   }
   .tabs-inner {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
+    justify-content: space-between; /* 🔥 ESSENCIAL */
     max-width: var(--page-w);
     width: 100%;
     margin: 0 auto;
@@ -966,6 +967,37 @@
     content: "▼";
   }
 
+  .btn-save-report {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    background: #1a3a5a;
+    color: #e0f0ff;
+    border: 1px solid #2a5a8a;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn-save-report:hover {
+    background: #205080;
+    transform: translateY(-1px);
+  }
+
+  .btn-save-report:active {
+    transform: translateY(0);
+  }
+
+  .btn-save-report.saved {
+    background: #1e4d2b;
+    border-color: #2a6b3c;
+    color: #a8f0b8;
+    cursor: default;
+  }
 
 </style>
 </head>
@@ -1013,18 +1045,27 @@
   </div>
 </header>
 
-<!-- TABS -->
 <nav class="tabs">
   <div class="tabs-inner">
-    <div id="tab-props" class="tab active" onclick="openTab('props')">
-      Properties <span class="tab-count">{{TOTAL_PROPS}}</span>
+
+    <!-- ESQUERDA -->
+    <div style="display:flex; align-items:flex-end;">
+      <div id="tab-props" class="tab active" onclick="openTab('props')">
+        Properties <span class="tab-count">{{TOTAL_PROPS}}</span>
+      </div>
+      <div id="tab-pkgs" class="tab" onclick="openTab('pkgs')">
+        Packages <span class="tab-count">{{TOTAL_PKGS}}</span>
+      </div>
+      <div id="tab-feats" class="tab" onclick="openTab('feats')">
+        Features <span class="tab-count">{{TOTAL_FEATS}}</span>
+      </div>
     </div>
-    <div id="tab-pkgs" class="tab" onclick="openTab('pkgs')">
-      Packages <span class="tab-count">{{TOTAL_PKGS}}</span>
-    </div>
-    <div id="tab-feats" class="tab" onclick="openTab('feats')">
-      Features <span class="tab-count">{{TOTAL_FEATS}}</span>
-    </div>
+
+    <!-- DIREITA -->
+    <button id="btn-save-report" class="btn-save-report" onclick="saveReport()">
+      💾 Salvar Relatório
+    </button>
+
   </div>
 </nav>
 
@@ -1311,6 +1352,33 @@
     if (counter) {
         counter.innerText = `Resultados: ${totalVisible}`;
     }
+  }
+
+  function saveReport() {
+    const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+
+    const now    = new Date();
+    const stamp  = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    
+    const buildA = document.querySelector('.seg.a .val')?.innerText || 'A';
+    const buildB = document.querySelector('.seg.b .val')?.innerText || 'B';
+
+    const safeA = buildA.replace(/[^\w\-\.]/g, '_');
+    const safeB = buildB.replace(/[^\w\-\.]/g, '_');
+
+    const fname = `${safeA}_vs_${safeB}.html`;
+
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = fname;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
   }
 </script>
 </body>

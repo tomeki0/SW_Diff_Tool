@@ -1,4 +1,5 @@
 import sys, os, re
+from pathlib import Path
 import customtkinter as ctk
 
 def resource_path(relative_path):
@@ -99,3 +100,6 @@ class Tooltip:
 
         if Tooltip.active_tooltip == self:
             Tooltip.active_tooltip = None
+            
+    def get_base_dir():
+        return Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))

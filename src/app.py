@@ -1,4 +1,7 @@
+import sys
+
 import presets
+import history as hist_module
 
 from adb import (
     get_device_id,
@@ -17,11 +20,12 @@ from diff_engine import (
 from report import gerar_html_report
 
 import os
+import shutil
 import threading
 import pywinstyles
 from PIL import Image
 
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 
 import ctypes
 
@@ -34,7 +38,13 @@ except:
         pass
 
 import customtkinter as ctk
-from utils import resource_path, filtrar_props, Tooltip
+from utils import resource_path, filtrar_props, Tooltip, get_base_dir
+
+from pathlib import Path
+import json
+import re
+from datetime import datetime
+import shutil
 
 class App(ctk.CTk):
 
@@ -98,17 +108,14 @@ class App(ctk.CTk):
         super().__init__()
 
         self.largura_janela = 500
-        self.altura_janela = 600
+        self.altura_janela  = 600
 
         self.title("Android SW Diff Tool")
 
-         # Agora tentamos carregar e mostrar a LOGO
-        self.logo_label = None 
+        # ── logo ──────────────────────────────────────────────────────────
+        self.logo_label = None
         try:
-            # Caminho simplificado para teste
             logo_path = "assets/logo_positivo.png"
-            logo_android_path = "assets/logo_android.png"
-            
             if os.path.exists(logo_path):
                 logo_pil = Image.open(logo_path)
                 logo_img = ctk.CTkImage(
@@ -116,13 +123,11 @@ class App(ctk.CTk):
                     dark_image=logo_pil,
                     size=(60, 60)
                 )
-
                 self.logo_label = ctk.CTkLabel(self, image=logo_img, text="")
-                self.logo_label.image = logo_img # Referência forte
-                self.logo_label.place(relx=0.98, y=10, anchor="ne")            
-        except Exception as e:
+                self.logo_label.image = logo_img
+                self.logo_label.place(relx=0.98, y=10, anchor="ne")
+        except Exception:
             pass
-        
 
         # ── status ADB ────────────────────────────────────────────────────
         self.status_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -134,7 +139,7 @@ class App(ctk.CTk):
         self.status_text = ctk.CTkLabel(self.status_frame, text="Desconectado")
         self.status_text.pack(side="left")
 
-        # ── barra de controles: reset + toggle tema ───────────────────────
+        # ── barra de controles ────────────────────────────────────────────
         ctrl_frame = ctk.CTkFrame(self, fg_color="transparent")
         ctrl_frame.pack(pady=10, padx=80, fill="x")
 
@@ -146,7 +151,6 @@ class App(ctk.CTk):
         )
         self.btn_reset.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
-        # ✅ ALTERAÇÃO #2: botão toggle Dark ↔ Light (sem crash)
         self._tema_atual = "Dark"
         self.btn_tema = ctk.CTkButton(
             ctrl_frame,
@@ -155,7 +159,19 @@ class App(ctk.CTk):
             fg_color="#555555",
             width=120
         )
-        self.btn_tema.pack(side="left")
+        self.btn_tema.pack(side="left", padx=(0, 6))
+
+        # ── botão Histórico ───────────────────────────────────────────────
+        self.btn_historico = ctk.CTkButton(
+            ctrl_frame,
+            text="📜",
+            command=self._abrir_historico,
+            fg_color="#333355",
+            width=46,
+            font=("Segoe UI", 16)
+        )
+        self.btn_historico.pack(side="left")
+        Tooltip(self.btn_historico, "Histórico de relatórios")
 
         # ── estado interno ────────────────────────────────────────────────
         self.last_device_state    = False
@@ -165,7 +181,6 @@ class App(ctk.CTk):
         self.build_b_id           = ""
         self.serial_a             = ""
         self.serial_b             = ""
-        
 
         self.props_a = {}
         self.props_b = {}
@@ -176,16 +191,17 @@ class App(ctk.CTk):
         self.apk_info_a = {}
         self.apk_info_b = {}
 
-        self.report_window = None
-        self.last_report_path = None
-        self.diff_mode = "generate"
+        self.report_window    = None
+        self.last_report_path = None   # caminho do temporário atual
+        self.report_saved     = False  # True quando o QA salvou manualmente
+        self.last_saved_path  = None   # caminho definitivo salvo pelo QA
+        self.diff_mode        = "generate"
 
-         # ── corpo principal ───────────────────────────────────────────────
+        # ── corpo principal ───────────────────────────────────────────────
         self.label_title = ctk.CTkLabel(
             self, text="Android SW Diff Tool",
             font=ctk.CTkFont(size=22, weight="bold")
         )
-
         self.label_title.pack(pady=(20, 15))
 
         self.label_instruction = ctk.CTkLabel(
@@ -196,18 +212,18 @@ class App(ctk.CTk):
         )
         self.label_instruction.pack(pady=5)
 
-       # ── BUILD A ──────────────────────────────────────────────────────
+        # ── BUILD A ───────────────────────────────────────────────────────
         row_a = ctk.CTkFrame(self, fg_color="transparent")
         row_a.pack(pady=(10, 4), padx=80, fill="x")
 
         self.btn_a = ctk.CTkButton(
-            row_a, text="COLETAR BUILD A",          # ← pai é row_a, não self
+            row_a, text="COLETAR BUILD A",
             command=lambda: self.coletar(1), height=50
         )
         self.btn_a.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         self.btn_preset_a = ctk.CTkButton(
-            row_a, text="💾",                        # ← pai é row_a
+            row_a, text="💾",
             command=lambda: self._carregar_preset_como(1),
             height=50, width=46,
             fg_color="#2a2a2a",
@@ -216,19 +232,19 @@ class App(ctk.CTk):
         self.btn_preset_a.pack(side="left")
         Tooltip(self.btn_preset_a, "Presets")
 
-        # ── BUILD B ──────────────────────────────────────────────────────
+        # ── BUILD B ───────────────────────────────────────────────────────
         row_b = ctk.CTkFrame(self, fg_color="transparent")
         row_b.pack(pady=(4, 10), padx=80, fill="x")
 
         self.btn_b = ctk.CTkButton(
-            row_b, text="COLETAR BUILD B",          # ← pai é row_b, não self
+            row_b, text="COLETAR BUILD B",
             command=lambda: self.coletar(2),
             height=50, state="disabled", fg_color="gray"
         )
         self.btn_b.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         self.btn_preset_b = ctk.CTkButton(
-            row_b, text="💾",                        # ← pai é row_b
+            row_b, text="💾",
             command=lambda: self._carregar_preset_como(2),
             height=50, width=46,
             fg_color="#2a2a2a",
@@ -238,27 +254,38 @@ class App(ctk.CTk):
         self.btn_preset_b.pack(side="left")
         Tooltip(self.btn_preset_b, "Presets")
 
+        # ── botão principal diff ──────────────────────────────────────────
         self.btn_diff = ctk.CTkButton(
             self, text="GERAR DIFERENÇA GERAL", command=self.gerar_diff,
             height=60, state="disabled", fg_color="#2E7D32",
             font=("Segoe UI", 14, "bold")
         )
-        self.btn_diff.pack(pady=30, padx=80, fill="x")
+        self.btn_diff.pack(pady=(30, 4), padx=80, fill="x")
+
+        # ── botão salvar relatório (abaixo do diff, inicialmente oculto) ──
+        self.btn_salvar_report = ctk.CTkButton(
+            self,
+            text="💾  Salvar Relatório",
+            command=self._salvar_relatorio,
+            height=36,
+            fg_color="#1a3a5a",
+            hover_color="#205080",
+            state="disabled",
+            font=("Segoe UI", 12)
+        )
+        self.btn_salvar_report.pack(pady=(0, 14), padx=80, fill="x")
 
         self.status_box = ctk.CTkTextbox(
-            self, 
-            height=100, 
+            self,
+            height=100,
             font=("Consolas", 12),
-            # Tupla: (Fundo no modo Light, Fundo no modo Dark)
-            fg_color=("white", "#1a1a1a"), 
-            # Tupla: (Texto no modo Light, Texto no modo Dark)
+            fg_color=("white", "#1a1a1a"),
             text_color=("black", "white"),
-            border_width=1, 
+            border_width=1,
             border_color=("#cccccc", "#333333")
         )
         self.status_box.pack(pady=10, padx=20, fill="x")
 
-        # ✅ ALTERAÇÃO #4: footer fixo na base
         ctk.CTkLabel(
             self,
             text="Android SW Diff Tool v1.0  —  desenvolvido por Guilherme Lima",
@@ -274,56 +301,254 @@ class App(ctk.CTk):
         self.geometry(f"{self.largura_janela}x{self.altura_janela}")
         self.after(10, self.centralizar)
 
+    # ─────────────────────────────────────────────────────────────────────
+    # RELATÓRIO — geração, salvamento, cleanup
+    # ─────────────────────────────────────────────────────────────────────
 
- 
-    # ✅ ALTERAÇÃO #2: troca tema sem fechar janelas nem crashar
+    def _cleanup_temp_report(self):
+        """Remove o arquivo temporário se o QA ainda não salvou."""
+        if self.last_report_path and not self.report_saved:
+            try:
+                os.remove(self.last_report_path)
+            except Exception:
+                pass
+        self.last_report_path = None
+        self.report_saved     = False
+        self.last_saved_path  = None
+
+    def _perguntar_descartar_relatorio(self) -> bool:
+        """
+        Se há relatório não salvo, pergunta se o QA quer salvar antes.
+        Retorna True se pode prosseguir, False se o QA cancelou.
+        """
+        if not self.last_report_path or self.report_saved:
+            return True
+
+        resposta = messagebox.askyesnocancel(
+            "Relatório não salvo",
+            "Existe um relatório que ainda não foi salvo.\n\n"
+            "Deseja salvá-lo antes de continuar?\n\n"
+            "  • Sim  → salvar agora e continuar\n"
+            "  • Não  → descartar e continuar\n"
+            "  • Cancelar → voltar"
+        )
+
+        if resposta is None:       # Cancelar
+            return False
+        elif resposta:             # Sim → salvar
+            salvo = self._salvar_relatorio()
+            return salvo           # continua só se realmente salvou
+        else:                      # Não → descartar
+            self._cleanup_temp_report()
+            return True
+
+    def _salvar_relatorio(self) -> bool:
+        
+        if not self.last_report_path or not os.path.exists(self.last_report_path):
+            messagebox.showerror("Erro", "Nenhum relatório disponível para salvar.")
+            return False
+
+        # pasta base
+        base_dir = get_base_dir() / "outputs" / "relatorios"
+
+        # nome da pasta
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+        safe_a = re.sub(r"[^\w\-\.]", "_", self.build_a_id or "A")
+        safe_b = re.sub(r"[^\w\-\.]", "_", self.build_b_id or "B")
+
+        folder_name = f"{timestamp}_{safe_a}_vs_{safe_b}"
+        report_dir = base_dir / folder_name
+
+        # cria pasta
+        report_dir.mkdir(parents=True, exist_ok=True)
+
+        # salva html
+        html_path = report_dir / "report.html"
+
+        try:
+            shutil.copy2(self.last_report_path, html_path)
+        except Exception as e:
+            messagebox.showerror("Erro ao salvar HTML", str(e))
+            return False
+
+        # cria summary
+        summary = {
+            "build_a": self.build_a_id,
+            "build_b": self.build_b_id,
+            "serial_a": self.serial_a or "—",
+            "serial_b": self.serial_b or "—",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "time": datetime.now().strftime("%H:%M"),
+            "props_diff": "unknown",
+            "pkgs_diff": "unknown",
+            "feats_diff": "unknown",
+            "file": "report.html"
+        }
+
+        try:
+            with open(report_dir / "summary.json", "w", encoding="utf-8") as f:
+                json.dump(summary, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            messagebox.showerror("Erro ao salvar resumo", str(e))
+            return False
+
+        # estado interno
+        self.last_saved_path = str(html_path)
+        self.report_saved = True
+
+        # feedback
+        self.log(f"Relatório salvo em: {html_path}", "ok")
+
+        messagebox.showinfo(
+            "Salvo!",
+            f"Relatório salvo com sucesso em:\n{html_path}"
+        )
+
+    # ─────────────────────────────────────────────────────────────────────
+    # HISTÓRICO
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _abrir_historico(self):
+        import webbrowser
+
+        win = ctk.CTkToplevel(self)
+        win.title("Histórico de Relatórios")
+        win.geometry("620x480")
+        win.grab_set()
+
+        ctk.CTkLabel(
+            win, text="📜 Histórico de Relatórios Salvos",
+            font=("Segoe UI", 14, "bold")
+        ).pack(pady=(16, 8))
+
+        itens = hist_module.listar()
+
+        if not itens:
+            ctk.CTkLabel(
+                win,
+                text="Nenhum relatório salvo ainda.\nGere e salve um relatório para ele aparecer aqui.",
+                text_color="gray",
+                font=("Segoe UI", 12)
+            ).pack(pady=40)
+            return
+
+        frame = ctk.CTkScrollableFrame(win, height=360)
+        frame.pack(fill="both", expand=True, padx=16, pady=4)
+
+        def _abrir_item(path):
+            if os.path.exists(path):
+                webbrowser.open(path)
+            else:
+                messagebox.showerror(
+                    "Arquivo não encontrado",
+                    f"O arquivo não existe mais:\n{path}"
+                )
+
+        def _remover_item(idx, row_widget):
+            if messagebox.askyesno("Remover", "Remover esta entrada do histórico?"):
+                hist_module.deletar(idx)
+                row_widget.destroy()
+
+        for i, entry in enumerate(itens):
+            row = ctk.CTkFrame(frame, fg_color="transparent")
+            row.pack(fill="x", pady=3)
+
+            # info
+            info_text = (
+                f"{entry.get('timestamp', '—')}\n"
+                f"{entry.get('build_a', '?')}  ↔  {entry.get('build_b', '?')}\n"
+                f"SN A: {entry.get('device_a', '—')}   SN B: {entry.get('device_b', '—')}"
+            )
+
+            ctk.CTkButton(
+                row,
+                text=info_text,
+                anchor="w",
+                command=lambda p=entry.get("report_path", ""): _abrir_item(p),
+                fg_color="transparent",
+                border_width=1,
+                text_color=("black", "white"),
+                hover_color=("#e0e0e0", "#2a2a2a"),
+                height=58,
+                font=("Consolas", 11)
+            ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+            btn_del = ctk.CTkButton(
+                row,
+                text="🗑",
+                width=42, height=58,
+                fg_color="#5a1a1a",
+                hover_color="#7f2020",
+                font=("Segoe UI", 16),
+                command=lambda idx=i, r=row: _remover_item(idx, r)
+            )
+            btn_del.pack(side="left")
+            Tooltip(btn_del, "Remover do histórico")
+
+        ctk.CTkButton(
+            win,
+            text="🗑 Limpar histórico completo",
+            command=lambda: (
+                messagebox.askyesno("Confirmar", "Limpar todo o histórico?") and
+                (hist_module.limpar(), win.destroy(),
+                 self.after(100, self._abrir_historico))
+            ),
+            fg_color="#333",
+            height=32
+        ).pack(pady=8)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # TEMA
+    # ─────────────────────────────────────────────────────────────────────
+
     def _toggle_tema(self):
         if self._tema_atual == "Dark":
-            novo_modo = "light"
+            novo_modo   = "light"
             self._tema_atual = "Light"
             texto_botao = "🌙 Modo Escuro"
-            cor_barra = "#ffffff"
+            cor_barra   = "#ffffff"
         else:
-            novo_modo = "dark"
+            novo_modo   = "dark"
             self._tema_atual = "Dark"
             texto_botao = "☀ Modo Claro"
-            cor_barra = "#1a1a1a"
+            cor_barra   = "#1a1a1a"
 
-        # Suaviza a transição
         self.attributes("-alpha", 0.98)
-        
         ctk.set_appearance_mode(novo_modo)
-        def _reconfigurar_tags_log(self):
-            is_dark = self._tema_atual == "Dark"
-            mapa = {
-                "tag_info":     "#a0a0b8" if is_dark else "#4b5563",
-                "tag_ok":       "#4ade80" if is_dark else "#16a34a",
-                "tag_erro":     "#f87171" if is_dark else "#dc2626",
-                "tag_aviso":    "#fbbf24" if is_dark else "#d97706",
-                "tag_destaque": "#c084fc" if is_dark else "#7c3aed",
-                "tag_device":   "#38bdf8" if is_dark else "#0369a1",
-            }
-            for tag, cor in mapa.items():
-                self.status_box.tag_config(tag, foreground=cor)
+
         self.btn_tema.configure(text=texto_botao)
 
-        # Sincroniza a barra de título do Windows
         try:
             pywinstyles.change_header_color(self, cor_barra)
             if self.report_window and self.report_window.winfo_exists():
                 pywinstyles.change_header_color(self.report_window, cor_barra)
-        except:
+        except Exception:
             pass
 
         self.update_idletasks()
         self.update()
         self.attributes("-alpha", 1.0)
-        self._reconfigurar_tags_log() 
+        self._reconfigurar_tags_log()
+
+    def _reconfigurar_tags_log(self):
+        is_dark = self._tema_atual == "Dark"
+        mapa = {
+            "tag_info":     "#a0a0b8" if is_dark else "#4b5563",
+            "tag_ok":       "#4ade80" if is_dark else "#16a34a",
+            "tag_erro":     "#f87171" if is_dark else "#dc2626",
+            "tag_aviso":    "#fbbf24" if is_dark else "#d97706",
+            "tag_destaque": "#c084fc" if is_dark else "#7c3aed",
+            "tag_device":   "#38bdf8" if is_dark else "#0369a1",
+        }
+        for tag, cor in mapa.items():
+            self.status_box.tag_config(tag, foreground=cor)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # LOG
+    # ─────────────────────────────────────────────────────────────────────
 
     def log(self, msg: str, tipo: str = "info"):
-        """
-        tipo: 'info' | 'ok' | 'erro' | 'aviso' | 'destaque'
-        """
         icons = {
             "info":     ">> ",
             "ok":       "[OK] ",
@@ -340,25 +565,16 @@ class App(ctk.CTk):
             "destaque": "#c084fc",
             "device":   "#38bdf8",
         }
-        cores_light = {
-            "info":     "#4b5563",
-            "ok":       "#16a34a",
-            "erro":     "#dc2626",
-            "aviso":    "#d97706",
-            "destaque": "#7c3aed",
-            "device":   "#0369a1",
-        }
 
         prefixo = icons.get(tipo, "➡️ ")
-        linha = f"{prefixo}{msg}\n"
-
-        tag = f"tag_{tipo}"
-        cor = cores_dark.get(tipo, "#a0a0b8")
+        linha   = f"{prefixo}{msg}\n"
+        tag     = f"tag_{tipo}"
+        cor     = cores_dark.get(tipo, "#a0a0b8")
 
         self.status_box.insert("end", linha, tag)
         self.status_box.tag_config(tag, foreground=cor)
         self.status_box.see("end")
-        
+
     def log_section(self, titulo):
         self.status_box.insert("end", "\n")
         self.status_box.insert("end", f"==== {titulo} ====\n", "tag_destaque")
@@ -370,6 +586,10 @@ class App(ctk.CTk):
     def log_space(self):
         self.status_box.insert("end", "\n")
 
+    # ─────────────────────────────────────────────────────────────────────
+    # ADB LOOP
+    # ─────────────────────────────────────────────────────────────────────
+
     def check_adb_loop(self):
         current_state = is_device_connected()
 
@@ -377,9 +597,7 @@ class App(ctk.CTk):
             if not self.device_detected_once:
                 id_build = (get_device_id() or "").strip()
                 self.status_dot.configure(text_color=self.COLOR_CONNECTED)
-                self.status_text.configure(
-                    text=f"Conectado: {id_build or 'Unknown'}"
-                )
+                self.status_text.configure(text=f"Conectado: {id_build or 'Unknown'}")
                 self.log_section("ADB")
                 self.log(f"Device conectado: {id_build}", "device")
                 self.log_space()
@@ -395,6 +613,10 @@ class App(ctk.CTk):
                 self.device_detected_once = False
 
         self.after(2000, self.check_adb_loop)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # COLETA
+    # ─────────────────────────────────────────────────────────────────────
 
     def coletar(self, versao):
         if self.coletando:
@@ -511,31 +733,34 @@ class App(ctk.CTk):
             )
 
         self.coletando = False
-        #print("LEN PKGS A:", len(self.pkgs_a.splitlines()))
         self._invalidate_report()
-        
+
+    # ─────────────────────────────────────────────────────────────────────
+    # GERAR DIFF
+    # ─────────────────────────────────────────────────────────────────────
 
     def gerar_diff(self):
+        # ── Se já existe relatório não salvo, perguntar antes de sobrescrever ──
+        if not self._perguntar_descartar_relatorio():
+            return
+
+        # limpa temp anterior (já descartado ou salvo)
+        self._cleanup_temp_report()
 
         def get_set_from_text(texto):
             result = set()
-
             for line in texto.splitlines():
                 line = line.strip()
-
                 if not line:
                     continue
-
-                # 🔥 NOVO: extrair só o package
                 if "=" in line:
                     try:
                         pkg = line.split("=")[-1]
                         result.add(pkg)
-                    except:
+                    except Exception:
                         continue
                 else:
                     result.add(line)
-
             return result
 
         pkgs_path_a = parse_packages_with_path(self.pkgs_a) if isinstance(self.pkgs_a, str) else {}
@@ -543,11 +768,10 @@ class App(ctk.CTk):
 
         pkgs_a = set(pkgs_path_a.keys())
         pkgs_b = set(pkgs_path_b.keys())
-        
+
         feat_a = get_set_from_text(self.feats_a) if isinstance(self.feats_a, str) else set()
         feat_b = get_set_from_text(self.feats_b) if isinstance(self.feats_b, str) else set()
 
-        # suporta tanto dict (preset) quanto string raw (ADB)
         prop_a = filtrar_props(self.props_a)
         prop_b = filtrar_props(self.props_b)
 
@@ -568,7 +792,6 @@ class App(ctk.CTk):
                 vb = prop_b.get(k, "---")
                 data['props'][categoria].append({'key': k, 'a': va, 'b': vb})
 
-        # 🔥 novo fluxo direto
         path = gerar_html_report(
             data,
             self.build_a_id,
@@ -579,10 +802,24 @@ class App(ctk.CTk):
         )
 
         self.last_report_path = path
-        self.diff_mode = "reopen"
+        self.report_saved     = False
+        self.diff_mode        = "reopen"
         self._update_diff_button()
 
+        # Habilita botão salvar relatório
+        self.btn_salvar_report.configure(state="normal")
+
+    # ─────────────────────────────────────────────────────────────────────
+    # RESETAR
+    # ─────────────────────────────────────────────────────────────────────
+
     def resetar(self):
+        # Pergunta sobre relatório não salvo antes de limpar tudo
+        if not self._perguntar_descartar_relatorio():
+            return
+
+        self._cleanup_temp_report()
+
         self.log("Estado resetado.", "aviso")
 
         if self.report_window and self.report_window.winfo_exists():
@@ -599,6 +836,7 @@ class App(ctk.CTk):
         self.build_a_id = ""
         self.build_b_id = ""
         self.serial_a   = ""
+        self.serial_b   = ""
 
         self.coletando = False
 
@@ -613,6 +851,7 @@ class App(ctk.CTk):
             fg_color="gray"
         )
         self.btn_diff.configure(state="disabled")
+        self.btn_salvar_report.configure(state="disabled")
 
         self.label_instruction.configure(
             text="INSTRUÇÃO: Conecte o primeiro dispositivo",
@@ -620,19 +859,50 @@ class App(ctk.CTk):
         )
         self._invalidate_report()
 
+    # ─────────────────────────────────────────────────────────────────────
+    # HELPERS
+    # ─────────────────────────────────────────────────────────────────────
+
     def centralizar(self):
-        largura = self.largura_janela
-        altura = self.altura_janela
-
         tela_largura = self.winfo_screenwidth()
+        x = int(tela_largura / 2 - self.largura_janela / 2)
+        self.geometry(f"{self.largura_janela}x{self.altura_janela}+{x}+0")
 
-        x = x = int(tela_largura / 2 - largura / 2)
-        y = 0
+    def reopen_last_report(self):
+        import webbrowser
+        if self.last_report_path and os.path.exists(self.last_report_path):
+            webbrowser.open(self.last_report_path)
+            self.log("Reabrindo último relatório...", "info")
+        else:
+            self.log("Nenhum relatório disponível.", "aviso")
 
-        self.geometry(f"{largura}x{altura}+{x}+{y}")
-        
+    def _update_diff_button(self):
+        if self.diff_mode == "generate":
+            self.btn_diff.configure(
+                text="GERAR DIFERENÇA GERAL",
+                command=self.gerar_diff,
+                fg_color="#2E7D32"
+            )
+        else:
+            self.btn_diff.configure(
+                text="REABRIR RELATÓRIO",
+                command=self.reopen_last_report,
+                fg_color="#444444"
+            )
+
+    def _invalidate_report(self):
+        self.last_report_path = None
+        self.report_saved     = False
+        self.last_saved_path  = None
+        self.diff_mode        = "generate"
+        self._update_diff_button()
+        self.btn_salvar_report.configure(state="disabled")
+
+    # ─────────────────────────────────────────────────────────────────────
+    # PRESETS
+    # ─────────────────────────────────────────────────────────────────────
+
     def _pedir_nome_preset(self, versao, props_raw, build_id):
-        """Abre um dialog simples para nomear e salvar o preset."""
         dialog = ctk.CTkInputDialog(
             text=f"Nome para salvar o preset da Build {versao}:\n(ex: MR1 - Display ID Projeto X)",
             title="Salvar Preset"
@@ -641,7 +911,6 @@ class App(ctk.CTk):
         if nome and nome.strip():
             props_filtradas = filtrar_props(props_raw)
             apk_info = presets.extrair_info_apk(self.pkgs_a if versao == 1 else self.pkgs_b)
-
             path = presets.salvar(
                 nome.strip(),
                 props_filtradas,
@@ -660,7 +929,6 @@ class App(ctk.CTk):
         win.geometry("520x460")
         win.grab_set()
 
-        # ── botão salvar o build atual (se já foi coletado) ──────────
         props_atual = self.props_a if versao == 1 else self.props_b
         build_atual = self.build_a_id if versao == 1 else self.build_b_id
 
@@ -676,7 +944,6 @@ class App(ctk.CTk):
                     apk_info = presets.extrair_info_apk(
                         self.pkgs_a if versao == 1 else self.pkgs_b
                     )
-
                     path = presets.salvar(
                         nome.strip(),
                         props_f,
@@ -685,10 +952,8 @@ class App(ctk.CTk):
                         features=self.feats_a if versao == 1 else self.feats_b,
                         apk_info=apk_info
                     )
-                    
                     messagebox.showinfo("Salvo!", f"Preset salvo em:\n{path}")
                     win.destroy()
-                    # reabre pra mostrar o novo preset na lista
                     self.after(100, lambda: self._carregar_preset_como(versao))
 
             ctk.CTkButton(
@@ -711,10 +976,9 @@ class App(ctk.CTk):
                 font=("Segoe UI", 13, "bold")
             ).pack(pady=(16, 6))
 
-        # ── lista de presets ─────────────────────────────────────────
         if not lista_presets:
             ctk.CTkLabel(win, text="Nenhum preset salvo ainda.",
-                        text_color="gray").pack(pady=20)
+                         text_color="gray").pack(pady=20)
         else:
             frame = ctk.CTkScrollableFrame(win, height=260)
             frame.pack(fill="both", expand=True, padx=16, pady=4)
@@ -726,7 +990,6 @@ class App(ctk.CTk):
             for p in lista_presets:
                 data_fmt = p.get("data", "")[:16].replace("T", " ")
 
-                # ── linha por preset ─────────────────────────────────────────
                 row = ctk.CTkFrame(frame, fg_color="transparent")
                 row.pack(fill="x", pady=3)
 
@@ -754,16 +1017,14 @@ class App(ctk.CTk):
                         except Exception as e:
                             messagebox.showerror("Erro", f"Não foi possível excluir:\n{e}")
                             return
-                        r.destroy()  # remove a linha da UI sem fechar a janela
-                
-                # ✏ EDITAR
+                        r.destroy()
+
                 def _editar(p=p):
                     dialog = ctk.CTkInputDialog(
                         text="Novo nome do preset:",
                         title="Renomear Preset"
                     )
                     novo_nome = dialog.get_input()
-
                     if novo_nome and novo_nome.strip():
                         try:
                             presets.renomear(p["_file"], novo_nome.strip())
@@ -773,13 +1034,11 @@ class App(ctk.CTk):
                         except Exception as e:
                             messagebox.showerror("Erro", str(e))
 
-
                 btn_edit = ctk.CTkButton(
                     row,
                     text="✏",
                     command=_editar,
-                    width=40,
-                    height=52,
+                    width=40, height=52,
                     fg_color="#1a3a5a",
                     hover_color="#205080",
                     font=("Segoe UI", 16)
@@ -791,8 +1050,7 @@ class App(ctk.CTk):
                     row,
                     text="🗑",
                     command=_excluir,
-                    width=40,
-                    height=52,
+                    width=40, height=52,
                     fg_color="#5a1a1a",
                     hover_color="#7f2020",
                     font=("Segoe UI", 16)
@@ -810,18 +1068,15 @@ class App(ctk.CTk):
             fg_color="#444",
             height=32
         ).pack(pady=8)
-        
+
     def _aplicar_preset(self, versao, preset):
-        """Simula uma coleta usando dados salvos do preset."""
-        build_id = preset["build_id"]
-        # Reconstrói props_raw como texto no formato getprop
-        # (ou guarda direto como dict — ajusta filtrar_props pra aceitar dict)
-        props_dict = preset["props"]
+        build_id    = preset["build_id"]
+        props_dict  = preset["props"]
 
         if versao == 1:
-            self.props_a    = props_dict   # agora é dict direto
-            self.pkgs_a = preset.get("packages", "")
-            self.feats_a = preset.get("features", "")
+            self.props_a    = props_dict
+            self.pkgs_a     = preset.get("packages", "")
+            self.feats_a    = preset.get("features", "")
             self.apk_info_a = preset.get("apk_info", {})
             self.build_a_id = build_id
             self.serial_a   = ""
@@ -835,8 +1090,8 @@ class App(ctk.CTk):
             messagebox.showinfo("Preset carregado", f"Build A: {build_id}")
         else:
             self.props_b    = props_dict
-            self.pkgs_b = preset.get("packages", "")
-            self.feats_b = preset.get("features", "")
+            self.pkgs_b     = preset.get("packages", "")
+            self.feats_b    = preset.get("features", "")
             self.apk_info_b = preset.get("apk_info", {})
             self.build_b_id = build_id
             self.btn_b.configure(state="disabled", text=f"[PRESET] {build_id}", fg_color="#333333")
@@ -845,31 +1100,3 @@ class App(ctk.CTk):
                 text="PRONTO: Clique no botão verde para ver o diff",
                 text_color="#00C853"
             )
-            
-    def reopen_last_report(self):
-        import webbrowser
-
-        if self.last_report_path and os.path.exists(self.last_report_path):
-            webbrowser.open(self.last_report_path)
-            self.log("Reabrindo último relatório...", "info")
-        else:
-            self.log("Nenhum relatório disponível.", "aviso")
-            
-    def _update_diff_button(self):
-        if self.diff_mode == "generate":
-            self.btn_diff.configure(
-                text="GERAR DIFERENÇA GERAL",
-                command=self.gerar_diff,
-                fg_color="#2E7D32"
-            )
-        else:
-            self.btn_diff.configure(
-                text="REABRIR RELATÓRIO",
-                command=self.reopen_last_report,
-                fg_color="#444444"
-            )
-            
-    def _invalidate_report(self):
-        self.last_report_path = None
-        self.diff_mode = "generate"
-        self._update_diff_button()

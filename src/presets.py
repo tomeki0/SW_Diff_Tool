@@ -1,8 +1,9 @@
 from pathlib import Path
 import json
 from datetime import datetime
+from utils import get_base_dir
 
-PRESETS_DIR = Path.home() / "AndroidSWDiff" / "presets"
+PRESETS_DIR = get_base_dir() / "outputs" / "presets"
 
 TARGET_PACKAGES = {
     "com.positivo.fota",
