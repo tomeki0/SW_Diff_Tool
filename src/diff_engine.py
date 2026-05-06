@@ -8,6 +8,10 @@ def highlight_diff(a, b):
     
     if a == b:
         return html.escape(a), html.escape(b)
+
+    # 🔥 totalmente diferente → sem inline diff
+    if not is_similar_enough(a, b):
+        return html.escape(a), html.escape(b)
     
     matcher = difflib.SequenceMatcher(None, a, b)
     html_a, html_b = "", ""
@@ -43,6 +47,7 @@ def split_fingerprint_parts(fp):
         return None
     
 def process_prop_value(key, val_a, val_b):
+
     changed = is_changed(val_a, val_b)
 
     if not changed:
@@ -58,27 +63,66 @@ def process_prop_value(key, val_a, val_b):
 
     is_fingerprint = "fingerprint" in key_lower
 
+    # =========================================================
+    # SIMPLE STRING DIFF
+    # =========================================================
+
     if is_simple:
-        return highlight_diff(val_a, val_b)
+
+        if is_similar_enough(val_a, val_b):
+            return highlight_diff(val_a, val_b)
+
+        return html.escape(val_a), html.escape(val_b)
+
+    # =========================================================
+    # FINGERPRINT DIFF
+    # =========================================================
 
     elif is_fingerprint:
+
         pa = split_fingerprint_parts(val_a)
         pb = split_fingerprint_parts(val_b)
 
-        if pa and pb and pa[0] == pb[0]:
-            base = pa[0]
-            inc_a = pa[1]
-            inc_b = pb[1]
-            suffix = pa[2]
+        if pa and pb:
 
-            return (
-                f"{html.escape(base)}/<mark class='diff-mark'>{html.escape(inc_a)}</mark>{html.escape(suffix)}",
-                f"{html.escape(base)}/<mark class='diff-mark'>{html.escape(inc_b)}</mark>{html.escape(suffix)}"
+            same_base = pa[0] == pb[0]
+
+            similar_incremental = is_similar_enough(
+                pa[1],
+                pb[1],
+                threshold=0.55
             )
 
-        return highlight_diff(val_a, val_b)
+            if same_base and similar_incremental:
 
-    return val_a, val_b
+                base = pa[0]
+
+                inc_a = pa[1]
+                inc_b = pb[1]
+
+                suffix = pa[2]
+
+                inc_a_html, inc_b_html = highlight_diff(
+                    inc_a,
+                    inc_b
+                )
+
+                return (
+                    f"{html.escape(base)}/{inc_a_html}{html.escape(suffix)}",
+                    f"{html.escape(base)}/{inc_b_html}{html.escape(suffix)}"
+                )
+
+        # fallback
+        if is_similar_enough(val_a, val_b):
+            return highlight_diff(val_a, val_b)
+
+        return html.escape(val_a), html.escape(val_b)
+
+    # =========================================================
+    # DEFAULT
+    # =========================================================
+
+    return html.escape(val_a or ""), html.escape(val_b or "")
 
 def calcular_diff_props(props):
     return sum(
@@ -117,3 +161,12 @@ def parse_packages_with_path(raw_text):
             result[pkg] = path_part
 
     return result
+
+def is_similar_enough(a, b, threshold=0.65):
+
+    a = a or ""
+    b = b or ""
+
+    ratio = difflib.SequenceMatcher(None, a, b).ratio()
+
+    return ratio >= threshold
