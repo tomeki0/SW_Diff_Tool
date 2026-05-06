@@ -101,5 +101,5 @@ class Tooltip:
         if Tooltip.active_tooltip == self:
             Tooltip.active_tooltip = None
             
-    def get_base_dir():
-        return Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+def get_base_dir():
+    return Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))

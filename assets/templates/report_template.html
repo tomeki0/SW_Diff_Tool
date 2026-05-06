@@ -1354,31 +1354,51 @@
     }
   }
 
-  function saveReport() {
-    const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  async function saveReport() {
 
-    const now    = new Date();
-    const stamp  = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-    
-    const buildA = document.querySelector('.seg.a .val')?.innerText || 'A';
-    const buildB = document.querySelector('.seg.b .val')?.innerText || 'B';
+    const btn = document.getElementById("btn-save-report");
 
-    const safeA = buildA.replace(/[^\w\-\.]/g, '_');
-    const safeB = buildB.replace(/[^\w\-\.]/g, '_');
+    try {
 
-    const fname = `${safeA}_vs_${safeB}.html`;
+        btn.disabled = true;
+        btn.innerText = "💾 Salvando...";
 
-    const url  = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href     = url;
-    link.download = fname;
+        const response = await fetch(
+            "http://127.0.0.1:8765/save-report"
+        );
 
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        const data = await response.json();
 
-    URL.revokeObjectURL(url);
+        if (data.success) {
+
+            btn.innerText = "✅ Relatório Salvo";
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerText = "💾 Salvar Relatório";
+            }, 1800);
+
+        } else {
+
+            alert(
+                "Falha ao salvar relatório.\n\n" +
+                (data.error || "")
+            );
+
+            btn.disabled = false;
+            btn.innerText = "💾 Salvar Relatório";
+        }
+
+    } catch (e) {
+
+        alert(
+            "Não foi possível comunicar com o Android SW Diff Tool.\n\n" +
+            "Verifique se a aplicação está aberta."
+        );
+
+        btn.disabled = false;
+        btn.innerText = "💾 Salvar Relatório";
+    }
   }
 </script>
 </body>

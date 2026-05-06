@@ -1,6 +1,9 @@
 import sys
 import presets
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+
 from adb import (
     get_device_id,
     is_device_connected,
@@ -43,6 +46,53 @@ import json
 import re
 from datetime import datetime
 import shutil
+
+class LocalAPIHandler(BaseHTTPRequestHandler):
+
+    app_instance = None
+
+    def do_GET(self):
+
+        # CORS
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+
+        try:
+
+            # ── SAVE REPORT ─────────────────────────────
+            if self.path == "/save-report":
+
+                ok = False
+
+                if LocalAPIHandler.app_instance:
+                    ok = LocalAPIHandler.app_instance._salvar_relatorio()
+
+                self.wfile.write(
+                    b'{"success": true}'
+                    if ok else
+                    b'{"success": false}'
+                )
+
+                return
+
+            # ── UNKNOWN ────────────────────────────────
+            self.wfile.write(b'{"error":"unknown_route"}')
+
+        except Exception as e:
+
+            try:
+                msg = str(e).replace('"', "'")
+                self.wfile.write(
+                    f'{{"success":false,"error":"{msg}"}}'.encode()
+                )
+            except:
+                pass
+
+    # 🔥 remove spam no console
+    def log_message(self, format, *args):
+        return
 
 class App(ctk.CTk):
 
@@ -247,7 +297,7 @@ class App(ctk.CTk):
             height=50, width=46,
             fg_color="#2a2a2a",
             font=("Segoe UI", 18),
-            state="disabled"
+            state="normal"
         )
         self.btn_preset_b.pack(side="left")
         Tooltip(self.btn_preset_b, "Presets")
@@ -294,11 +344,13 @@ class App(ctk.CTk):
         # ── inicialização ─────────────────────────────────────────────────
         self.log("Aguardando conexão ADB...", "info")
         self.check_adb_loop()
+        
+        self.start_local_server()
 
         self.update_idletasks()
         self.geometry(f"{self.largura_janela}x{self.altura_janela}")
         self.after(10, self.centralizar)
-
+    
     # ─────────────────────────────────────────────────────────────────────
     # RELATÓRIO — geração, salvamento, cleanup
     # ─────────────────────────────────────────────────────────────────────
@@ -312,7 +364,6 @@ class App(ctk.CTk):
                 pass
         self.last_report_path = None
         self.report_saved     = False
-        self.last_saved_path  = None
 
     def _perguntar_descartar_relatorio(self) -> bool:
         """
@@ -451,7 +502,8 @@ class App(ctk.CTk):
         win = ctk.CTkToplevel(self)
         win.title("Histórico de Relatórios")
         win.geometry("760x520")
-        win.grab_set()
+        # win.grab_set()
+        # win.transient(self)
 
         ctk.CTkLabel(
             win,
@@ -512,55 +564,175 @@ class App(ctk.CTk):
 
         for entry in itens:
 
-            row = ctk.CTkFrame(frame)
+            row = ctk.CTkFrame(
+                frame,
+                fg_color="transparent"
+            )
             row.pack(fill="x", pady=6)
 
-            info_text = (
-                f"{entry.get('build_a', '?')}   ↔   {entry.get('build_b', '?')}\n"
-                f"📅 {entry.get('date', '?')}   ⏰ {entry.get('time', '?')}\n"
-                f"📱 A: {entry.get('serial_a', '—')}\n"
-                f"📱 B: {entry.get('serial_b', '—')}\n"
-                f"📦 Packages: {entry.get('pkgs_diff', 'unknown')}   "
-                f"⚙ Props: {entry.get('props_diff', 'unknown')}   "
-                f"🧩 Features: {entry.get('feats_diff', 'unknown')}"
-            )
+            # ───────────────── BUILD NAMES ─────────────────
+            build_a = entry.get("build_a", "?")
+            build_b = entry.get("build_b", "?")
 
-            btn_main = ctk.CTkButton(
+            short_a = build_a[:30] + "..." if len(build_a) > 30 else build_a
+            short_b = build_b[:30] + "..." if len(build_b) > 30 else build_b
+
+            # ───────────────── CARD ─────────────────
+            card = ctk.CTkFrame(
                 row,
-                text=info_text,
-                anchor="w",
-                height=96,
-                fg_color="transparent",
+                width=620,
+                corner_radius=12,
                 border_width=1,
-                text_color=("black", "white"),
-                hover_color=("#eaeaea", "#2a2a2a"),
-                font=("Consolas", 11),
-                command=lambda e=entry: abrir_relatorio(e)
+                fg_color=("white", "#1e1e1e"),
+                border_color=("#d8d8d8", "#333333")
             )
 
-            btn_main.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            card.pack(
+                side="left",
+                fill="x",
+                expand=False,
+                padx=(0, 8)
+            )
 
+            # ───────────────── TITLE ─────────────────
+            title = ctk.CTkLabel(
+                card,
+                text=(
+                    f"SW A  •  {short_a}\n"
+                    f"SW B  •  {short_b}"
+                ),
+                justify="left",
+                anchor="w",
+                font=("Segoe UI", 11, "bold")
+            )
+
+            title.pack(
+                anchor="w",
+                padx=14,
+                pady=(12, 2)
+            )
+
+            # ───────────────── SERIALS ─────────────────
+            serials = ctk.CTkLabel(
+                card,
+                text=(
+                    f"SN A  •  {entry.get('serial_a', '—')}        "
+                    f"SN B  •  {entry.get('serial_b', '—')}"
+                ),
+                font=("Consolas", 11),
+                text_color=("gray20", "gray80"),
+                anchor="w"
+            )
+
+            serials.pack(
+                anchor="w",
+                padx=14,
+                pady=(8, 8)
+            )
+
+            # ───────────────── CHIPS ─────────────────
+            chips = ctk.CTkFrame(
+                card,
+                fg_color="transparent"
+            )
+
+            chips.pack(
+                anchor="w",
+                padx=14,
+                pady=(0, 4)
+            )
+
+            def chip(parent, text):
+
+                lbl = ctk.CTkLabel(
+                    parent,
+                    text=text,
+                    fg_color=("#efefef", "#2a2a2a"),
+                    corner_radius=8,
+                    padx=10,
+                    pady=4,
+                    font=("Segoe UI", 10)
+                )
+
+                lbl.pack(side="left", padx=(0, 6))
+
+                return lbl
+
+            chip_props = chip(
+                chips,
+                f"⚙ Props: {entry.get('props_diff', '0')} diffs"
+            )
+
+            chip_pkgs = chip(
+                chips,
+                f"📦 Packages: {entry.get('pkgs_diff', '0')} diffs"
+            )
+
+            chip_feats = chip(
+                chips,
+                f"🧩 Features: {entry.get('feats_diff', '0')} diffs"
+            )
+
+            # ───────────────── DATE ─────────────────
+            date_label = ctk.CTkLabel(
+                card,
+                text=f"{entry.get('date', '?')} • {entry.get('time', '?')}",
+                text_color="gray",
+                font=("Segoe UI", 10)
+            )
+
+            date_label.pack(
+                anchor="e",
+                padx=14,
+                pady=(4, 10)
+            )
+
+            # ───────────────── CLICKABLE ─────────────────
+            clickable_widgets = [
+                card,
+                title,
+                serials,
+                chips,
+                chip_props,
+                chip_pkgs,
+                chip_feats,
+                date_label
+            ]
+
+            for widget in clickable_widgets:
+                widget.bind(
+                    "<Button-1>",
+                    lambda e, x=entry: abrir_relatorio(x)
+                )
+
+            # ───────────────── ACTIONS ─────────────────
             btn_folder = ctk.CTkButton(
                 row,
                 text="📁",
-                width=42,
-                height=96,
+                width=40,
+                height=118,
                 fg_color="#1a3a5a",
                 hover_color="#205080",
                 command=lambda e=entry: abrir_pasta(e)
             )
-            btn_folder.pack(side="left", padx=(0, 4))
+
+            btn_folder.pack(
+                side="left",
+                padx=(0, 4)
+            )
+
             Tooltip(btn_folder, "Abrir pasta")
 
             btn_delete = ctk.CTkButton(
                 row,
                 text="🗑",
-                width=42,
-                height=96,
+                width=40,
+                height=118,
                 fg_color="#5a1a1a",
                 hover_color="#7f2020",
                 command=lambda e=entry, r=row: deletar_relatorio(e, r)
             )
+
             btn_delete.pack(side="left")
 
             Tooltip(btn_delete, "Excluir relatório")
@@ -964,6 +1136,33 @@ class App(ctk.CTk):
         self.diff_mode        = "generate"
         self._update_diff_button()
         self.btn_salvar_report.configure(state="disabled")
+        
+    def start_local_server(self):
+
+        try:
+
+            LocalAPIHandler.app_instance = self
+
+            self.local_server = HTTPServer(
+                ("127.0.0.1", 8765),
+                LocalAPIHandler
+            )
+
+            thread = threading.Thread(
+                target=self.local_server.serve_forever,
+                daemon=True
+            )
+
+            thread.start()
+
+            self.log("Local API iniciada em :8765", "info")
+
+        except Exception as e:
+
+            self.log(
+                f"Falha ao iniciar Local API: {e}",
+                "erro"
+            )
 
     # ─────────────────────────────────────────────────────────────────────
     # PRESETS
@@ -994,7 +1193,8 @@ class App(ctk.CTk):
         win = ctk.CTkToplevel(self)
         win.title("Presets")
         win.geometry("520x460")
-        win.grab_set()
+        # win.grab_set()
+        # win.transient(self)
 
         props_atual = self.props_a if versao == 1 else self.props_b
         build_atual = self.build_a_id if versao == 1 else self.build_b_id
