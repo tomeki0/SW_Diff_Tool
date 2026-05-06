@@ -295,39 +295,20 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback, serial_a="", s
                 continue
 
             html += f"""
-            <div class="pkg-group">
+            <div class="pkg-group" data-category="{grupo}">
                 <div class="pkg-group-title">
                     {grupo.upper()} <span class="count">({len(items)})</span>
                 </div>
-                <div class="pkg-list">
             """
 
             for pkg in sorted(items):
                 html += f'<div class="pkg-item">{html_escape(pkg)}</div>'
 
-            html += "</div></div>"
+            html += "</div>"
 
         return html
 
     from html import escape as html_escape
-
-    pkgs_summary_html = f"""
-    <div class="pkg-summary-advanced">
-        <div class="pkg-summary-title">📦 Packages exclusivos</div>
-
-        <div class="pkg-summary-grid">
-            <div class="pkg-box a">
-                <div class="label">Build A</div>
-                <div class="value">{len(pkgs_removed)}</div>
-            </div>
-
-            <div class="pkg-box b">
-                <div class="label">Build B</div>
-                <div class="value">{len(pkgs_added)}</div>
-            </div>
-        </div>
-    </div>
-    """
 
     pkgs_cards_html = f"""
     <div class="pkg-container">
@@ -388,7 +369,7 @@ def gerar_html_report(data, build_a_id, build_b_id, log_callback, serial_a="", s
     html_content = html_content.replace("{{TOTAL_PKGS}}", str(len(pkgs_added) + len(pkgs_removed)))
     html_content = html_content.replace(
         "{{PKGS_TABLE}}",
-        pkgs_summary_html + pkgs_cards_html
+        pkgs_cards_html
     )
 
     html_content = html_content.replace("{{TOTAL_FEATS}}", str(len(feats_added) + len(feats_removed)))

@@ -746,11 +746,6 @@
     gap: 4px;
   }
 
-.btn-filter.active {
-    background: #444;
-    color: #fff;
-  }
-
   .filter-buttons {
     display: flex;
     gap: 6px;
@@ -815,47 +810,40 @@
     gap: 16px;
   }
 
-  /* ================= SUMMARY ================= */
-
-  .pkg-summary-advanced {
+  .pkg-toolbar {
+    padding: 14px;
     margin-bottom: 16px;
-  }
 
-  .pkg-summary-title {
-    font-weight: 800;
-    margin-bottom: 8px;
-  }
+    border-radius: 10px;
+    border: 1px solid var(--border);
 
-  .pkg-summary-grid {
+    background: var(--surface);
+
     display: flex;
+    flex-direction: column;
     gap: 12px;
   }
 
-  .pkg-box {
-    flex: 1;
-    padding: 10px;
+  .pkg-search {
+    width: 100%;
+    padding: 10px 12px;
+
     border-radius: 8px;
-    background: var(--surface2);
     border: 1px solid var(--border);
-    text-align: center;
+
+    background: var(--surface2);
+    color: var(--text);
+
+    font-size: 13px;
+    font-family: var(--font);
+
+    transition: border-color 0.15s ease;
   }
 
-  .pkg-box .label {
-    font-size: 11px;
-    color: var(--muted);
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
+  .pkg-search:focus {
+    outline: none;
+    border-color: var(--accent);
   }
-
-  .pkg-box .value {
-    font-size: 22px;
-    font-weight: 900;
-  }
-
-  .pkg-box.a .value { color: var(--col-a); }
-  .pkg-box.b .value { color: var(--col-b); }
-  .pkg-box.diff .value { color: #f59e0b; }
 
   /* ================= CARDS ================= */
 
@@ -931,6 +919,42 @@
     font-size: 12px;
     margin-bottom: 6px;
     color: var(--text);
+  }
+
+  .pkg-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .pkg-filter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 6px 10px;
+
+    border-radius: 6px;
+    border: 1px solid var(--border);
+
+    background: var(--surface2);
+
+    font-size: 12px;
+    font-weight: 700;
+
+    cursor: pointer;
+    user-select: none;
+
+    transition: all 0.15s ease;
+  }
+
+  .pkg-filter:hover {
+    border-color: var(--accent);
+  }
+
+  .pkg-filter input {
+    cursor: pointer;
   }
 
   /* ================= ITEMS ================= */
@@ -1099,37 +1123,115 @@
 <!-- PACKAGES -->
 <section id="pkgs" class="panel">
   <div class="panel-inner">
+
     <div class="changes-badge">
       <span class="summary-count">{{TOTAL_PKGS}}</span>
       <span class="label">pacote(s) diferente(s)</span>
     </div>
 
-      {{APK_ALERTS}}
+    {{APK_ALERTS}}
 
-      <input
-        type="text"
-        id="pkgSearch"
-        placeholder="🔍 Buscar package..."
-        oninput="filterPackages(this)"
-        style="
-          width: 100%;
-          padding: 8px 10px;
-          margin-bottom: 12px;
-          border-radius: 6px;
-          border: 1px solid var(--border);
-          background: var(--surface2);
-          color: var(--text);
-        "
-      >
+    <div class="pkg-root">
 
-      <div id="pkgSearchCount" style="
-        font-size: 11px;
-        color: var(--muted);
-        margin-bottom: 8px;
-      ">
-        Resultados: 0
+      <!-- TOOLBAR -->
+      <div class="pkg-toolbar">
+
+        <!-- FILTROS -->
+        <div class="pkg-filters">
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="all"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            Todos
+          </label>
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="system"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            System
+          </label>
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="system_ext"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            System Ext
+          </label>
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="vendor"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            Vendor
+          </label>
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="product"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            Product
+          </label>
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="data"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            Data
+          </label>
+
+          <label class="pkg-filter">
+            <input
+              type="checkbox"
+              value="other"
+              checked
+              onchange="togglePkgFilter(this)"
+            >
+            Other
+          </label>
+
+        </div>
+
+        <!-- BUSCA -->
+        <input
+          type="text"
+          id="pkgSearch"
+          placeholder="🔍 Buscar package..."
+          oninput="filterPackages(this)"
+          class="pkg-search"
+        >
+
+        <!-- CONTADOR -->
+        <div id="pkgSearchCount">
+          Resultados: 0
+        </div>
+
       </div>
-    <div class="pkg-root">{{PKGS_TABLE}}</div>
+
+      <!-- CONTEÚDO -->
+      {{PKGS_TABLE}}
+
+    </div>
+
   </div>
 </section>
 
@@ -1268,81 +1370,125 @@
   }
 
   function filterPackages(input) {
+    applyPkgFilters();
 
-    const query = input.value.toLowerCase().trim();
+    const query =
+        input.value.toLowerCase().trim();
 
-    const cards = document.querySelectorAll(".pkg-card");
+    document.querySelectorAll(".pkg-container")
+        .forEach(container => {
+
+            const hasVisible =
+                container.querySelector(
+                    '.pkg-item:not([style*="display: none"])'
+                );
+
+            container.querySelectorAll(".pkg-card")
+                .forEach(card => {
+
+                    card.classList.toggle(
+                        "open",
+                        query.length === 0 || !!hasVisible
+                    );
+                });
+        });
+  }
+
+  function getEnabledPkgFilters() {
+
+    return [...document.querySelectorAll(
+        '.pkg-filter input:checked'
+    )]
+    .map(i => i.value);
+}
+
+function togglePkgFilter(changedInput) {
+
+    const allInput =
+        document.querySelector(
+            '.pkg-filter input[value="all"]'
+        );
+
+    const categoryInputs =
+        document.querySelectorAll(
+            '.pkg-filter input:not([value="all"])'
+        );
+
+    // clicou em TODOS
+    if (changedInput.value === "all") {
+
+        categoryInputs.forEach(input => {
+            input.checked = changedInput.checked;
+        });
+
+    } else {
+
+        const enabledCount =
+            [...categoryInputs]
+                .filter(i => i.checked)
+                .length;
+
+        allInput.checked =
+            enabledCount === categoryInputs.length;
+    }
+
+    applyPkgFilters();
+  }
+
+  function applyPkgFilters() {
+
+    const enabled =
+        getEnabledPkgFilters();
+
+    const showAll =
+        enabled.includes("all");
+
+    const query =
+        document.getElementById("pkgSearch")
+            .value
+            .toLowerCase()
+            .trim();
 
     let totalVisible = 0;
 
-    cards.forEach(card => {
+    document.querySelectorAll(".pkg-group")
+        .forEach(group => {
 
-        let cardHasVisible = false;
+            const category =
+                group.dataset.category;
 
-        const groups = card.querySelectorAll(".pkg-group");
+            const categoryVisible =
+                showAll ||
+                enabled.includes(category);
 
-        groups.forEach(group => {
+            let groupHasVisible = false;
 
-            let hasVisible = false;
+            group.querySelectorAll(".pkg-item")
+                .forEach(item => {
 
-            const items = group.querySelectorAll(".pkg-item");
+                    const text =
+                        item.textContent.toLowerCase();
 
-            items.forEach(el => {
+                    const matchesSearch =
+                        query === "" ||
+                        text.includes(query);
 
-                const original =
-                    el.dataset.original || el.textContent;
+                    const visible =
+                        categoryVisible &&
+                        matchesSearch;
 
-                if (!el.dataset.original) {
-                    el.dataset.original = original;
-                }
+                    item.style.display =
+                        visible ? "" : "none";
 
-                const text =
-                    original.toLowerCase();
-
-                const match =
-                    query === "" || text.includes(query);
-
-                el.style.display = match ? "" : "none";
-
-                if (match) {
-                    hasVisible = true;
-                    cardHasVisible = true;
-                    totalVisible++;
-                }
-            });
+                    if (visible) {
+                        totalVisible++;
+                        groupHasVisible = true;
+                    }
+                });
 
             group.style.display =
-                hasVisible ? "" : "none";
+                groupHasVisible ? "" : "none";
         });
-
-        // 🔥 abre ambos quando encontrar resultado
-        const container = card.closest(".pkg-container");
-
-        if (container) {
-
-            const allCards =
-                container.querySelectorAll(".pkg-card");
-
-            allCards.forEach(c => {
-                c.classList.toggle(
-                    "open",
-                    query.length > 0 && cardHasVisible
-                );
-            });
-        }
-
-        if (query.length === 0) {
-
-            const container = card.closest(".pkg-container");
-
-            if (container) {
-
-                container.querySelectorAll(".pkg-card")
-                    .forEach(c => c.classList.add("open"));
-            }
-        }
-
-    });
 
     const counter =
         document.getElementById("pkgSearchCount");
