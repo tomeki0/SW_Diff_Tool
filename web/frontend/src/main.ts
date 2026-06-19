@@ -96,6 +96,24 @@ function refreshButtons() {
 // ── conexão / coleta ──────────────────────────────────────────────────────────
 let manualMode = false;
 
+/**
+ * Dica acionável para erros conhecidos de conexão WebUSB.
+ * O caso mais comum: outro processo (adb server, Android Studio, scrcpy, outra
+ * aba) já segurou o dispositivo, e o WebUSB precisa dele com exclusividade.
+ */
+function connectionHint(err: Error): string | null {
+  const msg = (err.message || "").toLowerCase();
+  if (/already in use|in use by another|access denied|unable to claim|claiminterface/.test(msg)) {
+    return [
+      "Dica: o dispositivo já está sendo usado por outro programa.",
+      "  1. Feche Android Studio / scrcpy / app desktop antigo e outras abas deste site.",
+      "  2. No terminal, rode:  adb kill-server",
+      "  3. Clique em \"Conectar dispositivo\" de novo e autorize a depuração USB no aparelho.",
+    ].join("\n");
+  }
+  return null;
+}
+
 async function onConnect() {
   try {
     log("Abrindo seletor de dispositivos USB...");
@@ -109,7 +127,10 @@ async function onConnect() {
     log(`Dispositivo conectado (serial ${adb.serial}).`, "ok");
     refreshButtons();
   } catch (e) {
-    log(`Falha ao conectar: ${(e as Error).message}`, "err");
+    const err = e as Error;
+    log(`Falha ao conectar: ${err.message}`, "err");
+    const hint = connectionHint(err);
+    if (hint) log(hint, "warn");
   }
 }
 
