@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Android SW Diff Tool</title>
+  </head>
+  <body>
+    <div id="unsupported" class="banner hidden">
+      ⚠ Este navegador não suporta WebUSB. Use <b>Chrome</b> ou <b>Edge</b> para
+      coletar direto do dispositivo. (Firefox e Safari não implementam WebUSB.)
+    </div>
+
+    <main class="app">
+      <header class="topbar">
+        <h1>Android SW Diff Tool</h1>
+        <div class="status">
+          <span id="statusDot" class="dot off">●</span>
+          <span id="statusText">Desconectado</span>
+        </div>
+      </header>
+
+      <p id="instruction" class="instruction">Conecte o primeiro dispositivo</p>
+
+      <section class="builds">
+        <div class="build-row">
+          <button id="btnConnect" class="btn">🔌 Conectar dispositivo</button>
+        </div>
+        <div class="build-row">
+          <button id="btnCollectA" class="btn primary" disabled>COLETAR BUILD A</button>
+          <button id="btnPresetA" class="btn icon" title="Presets A">💾</button>
+        </div>
+        <div class="build-row">
+          <button id="btnCollectB" class="btn primary" disabled>COLETAR BUILD B</button>
+          <button id="btnPresetB" class="btn icon" title="Presets B">💾</button>
+        </div>
+      </section>
+
+      <button id="btnGenerate" class="btn generate" disabled>GERAR DIFERENÇA GERAL</button>
+
+      <div class="actions">
+        <button id="btnDownload" class="btn small" disabled>⬇ Baixar relatório</button>
+        <button id="btnReset" class="btn small ghost">Resetar</button>
+        <button id="btnManual" class="btn small ghost" title="Modo manual (dev)">⌨ Manual</button>
+      </div>
+
+      <pre id="log" class="log"></pre>
+
+      <details id="manualPanel" class="manual hidden">
+        <summary>Modo manual (colar saída do adb) — uso de teste</summary>
+        <div class="manual-grid">
+          <label>Build <select id="manualTarget"><option value="A">A</option><option value="B">B</option></select> — build_id <input id="manualBuildId" placeholder="ro.build.display.id" /></label>
+          <textarea id="manualProps" placeholder="getprop"></textarea>
+          <textarea id="manualPkgs" placeholder="pm list packages -f"></textarea>
+          <textarea id="manualFeats" placeholder="pm list features"></textarea>
+          <button id="btnManualApply" class="btn small">Aplicar à build</button>
+        </div>
+      </details>
+
+      <iframe id="report" class="report hidden" title="Relatório"></iframe>
+    </main>
+
+    <dialog id="presetDialog">
+      <form method="dialog" class="preset-dialog">
+        <h3 id="presetTitle">Presets</h3>
+        <div id="presetList" class="preset-list"></div>
+        <div class="preset-save">
+          <input id="presetName" placeholder="Nome do preset" />
+          <button id="btnPresetSave" type="button" class="btn small">💾 Salvar build atual</button>
+        </div>
+        <button value="close" class="btn small ghost">Fechar</button>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
