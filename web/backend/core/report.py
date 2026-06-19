@@ -7,6 +7,7 @@ Portado de src/report.py. Diferenças em relação ao original:
   - logos cacheados em base64 no import (não reprocessa a cada request);
   - gerar_html_report retorna a string HTML (sem tempfile/webbrowser/log_callback).
 """
+import os
 import html
 from pathlib import Path
 from datetime import datetime
@@ -19,8 +20,11 @@ from .diff_engine import (
     parse_packages_with_path
 )
 
-# ── assets bundlados com o backend ──────────────────────────────────────────
-ASSETS = Path(__file__).resolve().parent.parent / "assets"
+# ── assets ──────────────────────────────────────────────────────────────────
+# Reusa os assets da raiz do repositório (assets/), evitando duplicar binários.
+# Permite override por env var (útil no deploy/Vercel) via SWDIFF_ASSETS.
+_repo_assets = Path(__file__).resolve().parents[3] / "assets"
+ASSETS = Path(os.environ.get("SWDIFF_ASSETS", _repo_assets))
 TEMPLATE_PATH = ASSETS / "templates" / "report_template.html"
 
 # logos cacheados (1x no import)
