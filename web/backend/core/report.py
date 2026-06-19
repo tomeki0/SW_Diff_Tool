@@ -21,10 +21,11 @@ from .diff_engine import (
 )
 
 # ── assets ──────────────────────────────────────────────────────────────────
-# Reusa os assets da raiz do repositório (assets/), evitando duplicar binários.
-# Permite override por env var (útil no deploy/Vercel) via SWDIFF_ASSETS.
-_repo_assets = Path(__file__).resolve().parents[3] / "assets"
-ASSETS = Path(os.environ.get("SWDIFF_ASSETS", _repo_assets))
+# Assets ficam em web/backend/assets para que o bundle da função serverless
+# (Vercel includeFiles "web/backend/**") seja autocontido. Override por env var
+# SWDIFF_ASSETS, se necessário.
+_local_assets = Path(__file__).resolve().parent.parent / "assets"
+ASSETS = Path(os.environ.get("SWDIFF_ASSETS", _local_assets))
 TEMPLATE_PATH = ASSETS / "templates" / "report_template.html"
 
 # logos cacheados (1x no import)
