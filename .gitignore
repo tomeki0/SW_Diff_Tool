@@ -12,3 +12,8 @@ build/
 mudancas.md
 novs-feats.md
 outputs/
+# web app
+web/frontend/node_modules/
+web/frontend/dist/
+.env
+__pycache__/

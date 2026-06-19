@@ -1,0 +1,6 @@
+fastapi>=0.110
+pydantic>=2
+psycopg[binary]>=3.1
+# dev local apenas (a Vercel gerencia o ASGI no deploy)
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
