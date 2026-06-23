@@ -37,14 +37,19 @@ IMPORTANT_PROPS = {
         "ro.build.version.release"
     ],
     "🔐 Security Patch": [
-        "ro.build.version.security_patch"
+        "ro.build.version.security_patch",
+        "ro.vendor.build.security_patch"
     ],
     "🧱 Base OS": [
         "ro.build.version.base_os"
     ],
-    "🤖 GMS/API": [
+    "🤖 API Level": [
         "ro.com.google.gmsversion",
-        "ro.product.first_api_level"
+        "ro.product.first_api_level",
+        "ro.board.api_level",
+        "ro.board.first_api_level",
+        "ro.llndk.api_level",
+        "ro.vendor.api_level"
     ],
     "⚙️ CPU": [
         "ro.product.cpu.abilist32",
